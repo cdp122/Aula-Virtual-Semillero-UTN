@@ -3,7 +3,9 @@ const { CursoModelo } = require('../../entities/curso/CursoModelo');
 const resolvers = {
   Query: {
     cursos: async () => CursoModelo.find().lean(),
-    cursoPorId: async (_, { id }) => CursoModelo.findById(id).lean()
+    cursoPorId: async (_, { id }) => CursoModelo.findById(id).lean(),
+    cursosPorDocente: async (_, { docenteId }) =>
+      CursoModelo.find({ id_docente: docenteId }).lean()
   },
   Mutation: {
     crearCurso: async (_, { input }) => {
