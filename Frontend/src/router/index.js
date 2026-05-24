@@ -69,6 +69,31 @@ const routes = [
     name: 'DashboardFamilia',
     component: () => import('../views/DashboardFamilia.vue'),
     meta: { requiereAuth: true, rol: 'rol-padre' },
+    children: [
+      {
+        path: '',
+        name: 'FamiliaInicio',
+        component: () => import('../views/familia/InicioFamilia.vue'),
+      },
+      {
+        path: 'hijo/:id',
+        name: 'PerfilHijo',
+        component: () => import('../views/familia/PerfilHijo.vue'),
+        props: true,
+      },
+      {
+        path: 'hijo/:id/progreso/:actividadId',
+        name: 'ProgresoHijo',
+        component: () => import('../views/familia/ProgresoHijo.vue'),
+        props: true,
+      },
+      {
+        path: 'hijo/:id/actividades',
+        name: 'ActividadesCasa',
+        component: () => import('../views/familia/ActividadesCasa.vue'),
+        props: true,
+      }
+    ],
   },
   {
     path: '/:pathMatch(.*)*',
