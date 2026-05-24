@@ -37,6 +37,7 @@ const typeDefs = gql`
   extend type Query {
     cursos: [Curso!]!
     cursoPorId(id: ID!): Curso
+    cursosPorDocente(docenteId: ID!): [Curso!]!
   }
 
   extend type Mutation {
