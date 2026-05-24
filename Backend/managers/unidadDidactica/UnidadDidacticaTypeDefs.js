@@ -49,6 +49,8 @@ const typeDefs = gql`
     objetivo_general: String!
     objetivos_aprendizaje: [String!]!
     destrezas: [String!]!
+    semanas_previstas: Int
+    descripcion: String
     tecnica_didactica: String
     fecha_inicio: String
     fecha_fin: String
@@ -62,6 +64,8 @@ const typeDefs = gql`
     objetivo_general: String!
     objetivos_aprendizaje: [String!]
     destrezas: [String!]
+    semanas_previstas: Int
+    descripcion: String
     tecnica_didactica: String
     fecha_inicio: String
     fecha_fin: String
@@ -74,6 +78,8 @@ const typeDefs = gql`
     objetivo_general: String
     objetivos_aprendizaje: [String!]
     destrezas: [String!]
+    semanas_previstas: Int
+    descripcion: String
     tecnica_didactica: String
     fecha_inicio: String
     fecha_fin: String
@@ -90,6 +96,8 @@ const typeDefs = gql`
     crearUnidadDidacticaCrud(input: UnidadDidacticaInput!): UnidadDidactica!
     actualizarUnidadDidactica(id: ID!, input: UnidadDidacticaActualizacionInput!): UnidadDidactica
     eliminarUnidadDidactica(id: ID!): Boolean!
+    clonarUnidadDidactica(id: ID!): UnidadDidactica!
+    archivarUnidadDidactica(id: ID!): UnidadDidactica!
   }
 `;
 

@@ -28,6 +28,35 @@ const resolvers = {
       } catch (error) {
         throw new Error(`Error al eliminar unidad didactica: ${error.message}`);
       }
+    },
+    clonarUnidadDidactica: async (_, { id }) => {
+      try {
+        const unidadOriginal = await UnidadDidacticaModelo.findById(id).lean();
+        if (!unidadOriginal) throw new Error('Unidad no encontrada');
+
+        const { _id, ...restoUnidad } = unidadOriginal;
+        const copia = {
+          ...restoUnidad,
+          ambito: `${restoUnidad.ambito} (Copia)`,
+          activo: true
+        };
+
+        const nuevaUnidad = new UnidadDidacticaModelo(copia);
+        return await nuevaUnidad.save();
+      } catch (error) {
+        throw new Error(`Error al clonar unidad didactica: ${error.message}`);
+      }
+    },
+    archivarUnidadDidactica: async (_, { id }) => {
+      try {
+        return await UnidadDidacticaModelo.findByIdAndUpdate(
+          id,
+          { activo: false },
+          { new: true }
+        ).lean();
+      } catch (error) {
+        throw new Error(`Error al archivar unidad didactica: ${error.message}`);
+      }
     }
   }
 };

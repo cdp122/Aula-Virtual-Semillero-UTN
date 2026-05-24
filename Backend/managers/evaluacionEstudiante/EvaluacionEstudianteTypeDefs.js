@@ -95,6 +95,15 @@ const typeDefs = gql`
       input: EvaluacionEstudianteActualizacionInput!
     ): EvaluacionEstudiante
     eliminarEvaluacionEstudiante(id: ID!): Boolean!
+    registrarNuevaVersionEvaluacion(
+      id_evaluacion: ID!
+      docente_evaluador: String!
+      evaluaciones_criterio: [EvaluacionCriterioInput!]!
+    ): EvaluacionEstudiante!
+    actualizarFichaMonitoreoEstudiante(
+      id_evaluacion: ID!
+      ficha: FichaMonitoreoInput!
+    ): EvaluacionEstudiante!
   }
 `;
 

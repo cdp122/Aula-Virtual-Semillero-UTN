@@ -1,5 +1,19 @@
-import { createApp } from 'vue'
+import { createApp, provide, h } from 'vue'
 import './style.css'
 import App from './App.vue'
+import router from './router'
+import { DefaultApolloClient } from '@vue/apollo-composable'
+import { apolloClient } from './apollo-client'
+import { QuillEditor } from '@vueup/vue-quill'
+import '@vueup/vue-quill/dist/vue-quill.snow.css'
 
-createApp(App).mount('#app')
+const app = createApp({
+  setup() {
+    provide(DefaultApolloClient, apolloClient)
+  },
+  render: () => h(App)
+})
+
+app.use(router)
+app.component('QuillEditor', QuillEditor)
+app.mount('#app')

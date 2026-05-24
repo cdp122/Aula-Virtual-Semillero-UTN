@@ -41,6 +41,8 @@ const UnidadDidacticaSchema = new mongoose.Schema(
     objetivo_general: { type: String, required: true },
     objetivos_aprendizaje: { type: [String], default: [] },
     destrezas: { type: [String], default: [] },
+    semanas_previstas: { type: Number },
+    descripcion: { type: String },
     tecnica_didactica: { type: String },
     fecha_inicio: { type: Date },
     fecha_fin: { type: Date },
