@@ -1,8 +1,13 @@
 <script setup>
 import { ref } from 'vue'
+import apolloClient from '../graphql/client.js'
+import { CREAR_UNIDAD_DIDACTICA_CRUD } from '../graphql/queries.js'
 
 const currentStep = ref(1)
 const steps = ['Información General', 'Objetivos y Destrezas', 'Descripción y Actividades', 'Revisión']
+
+const guardando = ref(false)
+const toast = ref({ show: false, message: '', type: 'success' })
 
 // Data model for the new Unidad Didactica
 const form = ref({
@@ -16,6 +21,8 @@ const form = ref({
   actividades: []
 })
 
+const destrezasInput = ref('')
+
 const nextStep = () => {
   if (currentStep.value < 4) currentStep.value++
 }
@@ -24,8 +31,58 @@ const prevStep = () => {
   if (currentStep.value > 1) currentStep.value--
 }
 
-const save = () => {
-  alert('Guardado simulado. Aquí se conectará con GraphQL.')
+const save = async () => {
+  guardando.value = true
+  try {
+    // Convertir destrezas separadas por comas a array
+    const destrezasArray = destrezasInput.value
+      .split(',')
+      .map(d => d.trim())
+      .filter(d => d.length > 0)
+
+    const input = {
+      ambito: form.value.ambito,
+      semanas_previstas: form.value.semanas_previstas,
+      objetivo_general: form.value.objetivo_general,
+      destrezas: destrezasArray,
+      descripcion: form.value.descripcion,
+      tecnica_didactica: form.value.tecnica_didactica,
+      activo: true,
+      actividades: [] // Actividades por defecto vacías al crear la unidad
+    }
+
+    await apolloClient.mutate({
+      mutation: CREAR_UNIDAD_DIDACTICA_CRUD,
+      variables: { input }
+    })
+
+    mostrarToast('Unidad Didáctica creada exitosamente', 'success')
+    // Resetear formulario
+    setTimeout(() => {
+      currentStep.value = 1
+      form.value = {
+        ambito: '',
+        semanas_previstas: 1,
+        objetivo_general: '',
+        objetivos_aprendizaje: [],
+        destrezas: [],
+        descripcion: '',
+        tecnica_didactica: '',
+        actividades: []
+      }
+      destrezasInput.value = ''
+    }, 2000)
+  } catch (error) {
+    console.error('Error al guardar unidad:', error)
+    mostrarToast('Error al crear la unidad didáctica', 'error')
+  } finally {
+    guardando.value = false
+  }
+}
+
+function mostrarToast(message, type) {
+  toast.value = { show: true, message, type }
+  setTimeout(() => { toast.value.show = false }, 3000)
 }
 </script>
 
@@ -81,7 +138,7 @@ const save = () => {
             </div>
             <div class="form-group full-width">
               <label>Destrezas (Separadas por comas)</label>
-              <input type="text" placeholder="Ej. Clasificar, Ordenar, Sumar..." class="input-base" />
+              <input type="text" v-model="destrezasInput" placeholder="Ej. Clasificar, Ordenar, Sumar..." class="input-base" />
             </div>
           </div>
 
@@ -108,11 +165,22 @@ const save = () => {
 
       <!-- Actions -->
       <div class="wizard-actions">
-        <button class="btn-secondary" @click="prevStep" :disabled="currentStep === 1">Anterior</button>
+        <button class="btn-secondary" @click="prevStep" :disabled="currentStep === 1 || guardando">Anterior</button>
         <button class="btn-primary" @click="nextStep" v-if="currentStep < 4">Siguiente</button>
-        <button class="btn-success" @click="save" v-if="currentStep === 4">Guardar Unidad</button>
+        <button class="btn-success" @click="save" v-if="currentStep === 4" :disabled="guardando">
+          {{ guardando ? 'Guardando...' : 'Guardar Unidad' }}
+        </button>
       </div>
     </div>
+
+    <!-- Toast -->
+    <Transition name="toast">
+      <div v-if="toast.show" class="toast" :class="'toast-' + toast.type">
+        <svg v-if="toast.type === 'success'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success-400)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+        <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger-400)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
+        {{ toast.message }}
+      </div>
+    </Transition>
   </div>
 </template>
 

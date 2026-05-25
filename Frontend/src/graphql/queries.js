@@ -215,6 +215,24 @@ export const OBTENER_UNIDADES_DIDACTICAS = gql`
   }
 `;
 
+export const CREAR_UNIDAD_DIDACTICA_CRUD = gql`
+  mutation CrearUnidadDidacticaCrud($input: UnidadDidacticaInput!) {
+    crearUnidadDidacticaCrud(input: $input) {
+      _id
+      ambito
+      objetivo_general
+      objetivos_aprendizaje
+      destrezas
+      semanas_previstas
+      descripcion
+      tecnica_didactica
+      fecha_inicio
+      fecha_fin
+      activo
+    }
+  }
+`;
+
 /* ── Evaluaciones de Estudiantes ─────────────────── */
 export const OBTENER_EVALUACIONES_ESTUDIANTE = gql`
   query ObtenerEvaluacionesEstudiante {
