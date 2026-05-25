@@ -1,5 +1,5 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, computed, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAuth } from '../../composables/useAuth.js'
 import apolloClient from '../../graphql/client.js'
@@ -21,11 +21,88 @@ const unidadesActivas = ref([])
 const evaluaciones = ref([])
 const cargando = ref(true)
 
+// Helper: Convertir ID del criterio a texto legible
+function getCriterioTexto(id) {
+  if (id === 'crit-001') return 'Clasificación de Información'
+  if (id === 'crit-002') return 'Seriación y Ordenamiento'
+  return id
+}
+
+// Helper: Convertir nivel a formato amigable
+function getLabel(nivel) {
+  switch (nivel) {
+    case 'INICIADO':
+    case 'I':
+      return 'Iniciado'
+    case 'EN PROCESO':
+    case 'EP':
+      return 'En Proceso'
+    case 'LOGRADO':
+    case 'L':
+      return 'Logrado'
+    default:
+      return nivel
+  }
+}
+
+function getNivelClass(nivel) {
+  const n = String(nivel).toUpperCase()
+  if (n.includes('LOGRADO') || n === 'L') return 'nivel-logrado'
+  if (n.includes('PROCESO') || n === 'EP') return 'nivel-proceso'
+  return 'nivel-iniciado'
+}
+
+// Agrupar evaluaciones por fecha (Línea de tiempo cronológica)
+const evaluacionesOrdenadas = computed(() => {
+  if (!evaluaciones.value?.length) return []
+  return [...evaluaciones.value].sort((a, b) => {
+    const dateA = a.historial_versiones?.[0]?.fecha_registro || 0
+    const dateB = b.historial_versiones?.[0]?.fecha_registro || 0
+    return parseInt(dateB) - parseInt(dateA) // Descendente (más reciente primero)
+  })
+})
+
+// Comparación de criterios a lo largo del tiempo
+const comparativaCriterios = computed(() => {
+  if (!evaluaciones.value?.length) return []
+  const mapCriterios = {}
+
+  // Ordenamos cronológicamente (más antiguo a más reciente para ver avance)
+  const cronoEvals = [...evaluaciones.value].sort((a, b) => {
+    const dateA = a.historial_versiones?.[0]?.fecha_registro || 0
+    const dateB = b.historial_versiones?.[0]?.fecha_registro || 0
+    return parseInt(dateA) - parseInt(dateB)
+  })
+
+  cronoEvals.forEach(ev => {
+    const ultima = ev.historial_versiones?.[ev.historial_versiones.length - 1]
+    if (ultima?.evaluaciones_criterio) {
+      ultima.evaluaciones_criterio.forEach(c => {
+        if (!mapCriterios[c.id_criterio]) {
+          mapCriterios[c.id_criterio] = []
+        }
+        mapCriterios[c.id_criterio].push({
+          actividadId: ev.id_actividad,
+          fecha: ultima.fecha_registro,
+          nivel: c.nivel_logro,
+          observaciones: c.observaciones
+        })
+      })
+    }
+  })
+
+  return Object.entries(mapCriterios).map(([id_criterio, historico]) => ({
+    id_criterio,
+    nombre: getCriterioTexto(id_criterio),
+    historico
+  }))
+})
+
 async function cargarDatosPerfil() {
   cargando.value = true
   try {
-    // Validar que el hijo pertenezca al usuario logueado
-    if (!usuario.value.hijos?.includes(props.id)) {
+    // Validar que el hijo pertenezca al usuario logueado (RNF-02)
+    if (!usuario.value?.hijos?.includes(props.id)) {
       router.push('/familia')
       return
     }
@@ -63,14 +140,12 @@ async function cargarDatosPerfil() {
     
     unidadesActivas.value = (resUnidades.data.unidadesDidacticas || [])
       .filter(u => u.activo)
-      .slice(0, 3)
       
     // 5. Obtener Evaluaciones (Progreso)
     const resEvaluaciones = await apolloClient.query({
       query: OBTENER_EVALUACIONES_ESTUDIANTE
     })
     
-    // Asignar al ref 'evaluaciones' (necesitamos crearlo arriba)
     evaluaciones.value = (resEvaluaciones.data.evaluacionesEstudiantes || [])
       .filter(e => e.id_estudiante === props.id)
       
@@ -94,6 +169,12 @@ function verProgreso(actividadId) {
 }
 
 onMounted(cargarDatosPerfil)
+
+watch(() => props.id, (nuevoId) => {
+  if (nuevoId) {
+    cargarDatosPerfil()
+  }
+})
 </script>
 
 <template>
@@ -102,7 +183,7 @@ onMounted(cargarDatosPerfil)
     <div class="page-header">
       <button class="btn btn-ghost btn-sm btn-back" @click="irAInicio">
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
-        Volver
+        Volver a la selección
       </button>
     </div>
 
@@ -133,7 +214,6 @@ onMounted(cargarDatosPerfil)
 
       <!-- Grid de Información Académica -->
       <div class="info-grid animate-slide-up">
-        
         <!-- Grupo y Docente -->
         <div class="info-card">
           <div class="card-icon blue">
@@ -144,7 +224,7 @@ onMounted(cargarDatosPerfil)
             <p class="valor-destacado">{{ curso ? curso.nombre_curso : 'No asignado' }}</p>
             
             <div v-if="docente" class="docente-info">
-              <span class="label">Docente:</span>
+              <span class="label">Docente Responsable:</span>
               <div class="docente-perfil">
                 <div class="doc-avatar">{{ docente.nombre?.[0] || 'D' }}</div>
                 <span>{{ docente.nombre }}</span>
@@ -165,19 +245,57 @@ onMounted(cargarDatosPerfil)
             <div class="accesos-acciones">
               <button class="btn btn-primary w-full" @click="irAActividades">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-                Actividades en Casa
+                Ver Actividades en Casa
               </button>
             </div>
           </div>
         </div>
       </div>
 
+      <!-- Comparativa de Logros por Criterio (RF-F03) -->
+      <section class="comparativa-section animate-slide-up" style="animation-delay: 0.1s">
+        <div class="section-header">
+          <h2>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
+            Comparación de Logros entre Períodos
+          </h2>
+          <p class="section-subtitle">Visualiza la evolución de los criterios evaluados a lo largo del tiempo</p>
+        </div>
+
+        <div v-if="comparativaCriterios.length === 0" class="empty-state-small">
+          <p>No hay evaluaciones suficientes para generar una comparación.</p>
+        </div>
+
+        <div v-else class="comparativa-grid">
+          <div v-for="criterio in comparativaCriterios" :key="criterio.id_criterio" class="comparativa-card">
+            <div class="comp-card-header">
+              <h4>{{ criterio.nombre }}</h4>
+            </div>
+            
+            <!-- Flujo de avance -->
+            <div class="comp-flow">
+              <div v-for="(hist, idx) in criterio.historico" :key="idx" class="comp-step">
+                <div class="step-badge" :class="getNivelClass(hist.nivel)">
+                  {{ getLabel(hist.nivel) }}
+                </div>
+                <div class="step-date">
+                  {{ new Date(parseInt(hist.fecha)).toLocaleDateString() }}
+                </div>
+                <div v-if="idx < criterio.historico.length - 1" class="step-arrow">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Unidades Activas -->
-      <section class="unidades-section animate-slide-up" style="animation-delay: 0.1s">
+      <section class="unidades-section animate-slide-up" style="animation-delay: 0.15s">
         <div class="section-header">
           <h2>
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>
-            Unidades Didácticas Activas
+            Planificación y Unidades Activas
           </h2>
         </div>
 
@@ -205,33 +323,35 @@ onMounted(cargarDatosPerfil)
         </div>
       </section>
 
-      <!-- Evaluaciones / Progreso -->
+      <!-- Evaluaciones / Progreso (Línea de Tiempo - RF-F03) -->
       <section class="evaluaciones-section animate-slide-up" style="animation-delay: 0.2s">
         <div class="section-header">
           <h2>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
-            Progreso y Evaluaciones
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Historial de Evaluaciones
           </h2>
         </div>
 
-        <div v-if="evaluaciones.length === 0" class="empty-state-small">
+        <div v-if="evaluacionesOrdenadas.length === 0" class="empty-state-small">
           <p>Aún no hay evaluaciones registradas para este alumno.</p>
         </div>
 
-        <div v-else class="evaluaciones-list">
+        <div v-else class="evaluaciones-list timeline">
           <div 
-            v-for="ev in evaluaciones" 
+            v-for="ev in evaluacionesOrdenadas" 
             :key="ev._id" 
-            class="evaluacion-card"
+            class="evaluacion-card timeline-item"
             @click="verProgreso(ev.id_actividad)"
           >
             <div class="eval-icon">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </div>
             <div class="eval-info">
-              <h4>Evaluación de Actividad (ID: {{ ev.id_actividad.substring(0, 8) }}...)</h4>
-              <p v-if="ev.historial_versiones?.length > 0">
-                Última actualización: {{ new Date(parseInt(ev.historial_versiones[ev.historial_versiones.length - 1].fecha_registro)).toLocaleDateString() }}
+              <h4>Evaluación registrada para Actividad</h4>
+              <p class="eval-meta">ID Actividad: <code>{{ ev.id_actividad }}</code></p>
+              <p v-if="ev.historial_versiones?.length > 0" class="eval-time">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Última versión (v{{ ev.historial_versiones.length }}): {{ new Date(parseInt(ev.historial_versiones[ev.historial_versiones.length - 1].fecha_registro)).toLocaleString() }}
               </p>
             </div>
             <div class="eval-action">
@@ -240,7 +360,6 @@ onMounted(cargarDatosPerfil)
           </div>
         </div>
       </section>
-
     </div>
   </div>
 </template>
@@ -257,42 +376,49 @@ onMounted(cargarDatosPerfil)
   color: var(--text-primary);
 }
 
-/* ═══ HEADER ALUMNO ═══ */
+.perfil-content {
+  display: flex;
+  flex-direction: column;
+  gap: 36px;
+}
+
+/* ── CABECERA ALUMNO ── */
 .alumno-header-card {
   display: flex;
   align-items: center;
   gap: 24px;
-  padding: 32px;
+  padding: 30px;
   background: var(--gradient-card);
   border: 1px solid var(--border-color);
-  border-radius: var(--radius-xl);
-  margin-bottom: 24px;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .alumno-avatar-lg {
-  width: 90px;
-  height: 90px;
+  width: 80px;
+  height: 80px;
+  background: var(--gradient-accent);
+  color: var(--gray-900);
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(252,196,25,0.15);
-  color: var(--accent-400);
-  border-radius: 20px;
-  font-size: 2.5rem;
+  font-size: 2.2rem;
   font-weight: 800;
-  box-shadow: 0 8px 32px rgba(252,196,25,0.1);
+  border-radius: var(--radius-md);
+  flex-shrink: 0;
 }
 
 .alumno-main-info h1 {
   font-size: 1.8rem;
+  font-weight: 800;
   margin-bottom: 4px;
-  color: var(--text-primary);
+  letter-spacing: -0.02em;
 }
 
 .alumno-username {
-  color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 0.9rem;
+  color: var(--accent-400);
+  font-size: 0.95rem;
+  font-weight: 500;
   margin-bottom: 12px;
 }
 
@@ -302,101 +428,190 @@ onMounted(cargarDatosPerfil)
   flex-wrap: wrap;
 }
 
-/* ═══ GRID INFO ═══ */
+/* ── INFO GRID ── */
 .info-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-  gap: 24px;
-  margin-bottom: 32px;
+  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  gap: 20px;
 }
 
 .info-card {
-  display: flex;
-  gap: 16px;
-  padding: 24px;
   background: var(--bg-card);
-  backdrop-filter: blur(16px);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
+  padding: 24px;
+  display: flex;
+  gap: 16px;
+  transition: all var(--transition-base);
+}
+
+.info-card:hover {
+  border-color: var(--border-color-hover);
+  transform: translateY(-2px);
 }
 
 .card-icon {
   width: 48px;
   height: 48px;
+  border-radius: var(--radius-md);
   display: flex;
   align-items: center;
   justify-content: center;
-  border-radius: var(--radius-md);
   flex-shrink: 0;
 }
+
 .card-icon.blue {
   background: rgba(76,110,245,0.12);
   color: var(--primary-400);
 }
+
 .card-icon.orange {
-  background: rgba(253,126,20,0.12);
-  color: #fd7e14;
+  background: rgba(253,150,68,0.12);
+  color: #fd9644;
+}
+
+.card-content {
+  flex: 1;
 }
 
 .card-content h3 {
   font-size: 1.05rem;
-  color: var(--text-secondary);
+  font-weight: 700;
   margin-bottom: 8px;
 }
 
 .valor-destacado {
-  font-size: 1.25rem;
-  font-weight: 700;
+  font-size: 1.15rem;
+  font-weight: 800;
   color: var(--text-primary);
   margin-bottom: 16px;
 }
 
 .valor-desc {
   font-size: 0.9rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   margin-bottom: 16px;
 }
 
 .docente-info {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding-top: 16px;
   border-top: 1px solid var(--border-color);
+  padding-top: 12px;
+  font-size: 0.85rem;
 }
 
 .docente-info .label {
-  font-size: 0.8rem;
   color: var(--text-muted);
-  text-transform: uppercase;
-  letter-spacing: 0.05em;
+  display: block;
+  margin-bottom: 6px;
 }
 
 .docente-perfil {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   font-weight: 500;
-  color: var(--text-primary);
+  color: var(--text-secondary);
 }
 
 .doc-avatar {
-  width: 28px;
-  height: 28px;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  background: var(--gradient-primary);
+  color: white;
   display: flex;
   align-items: center;
   justify-content: center;
-  background: var(--bg-glass);
+  font-size: 0.72rem;
+  font-weight: bold;
+}
+
+/* ── COMPARATIVA SECCIÓN ── */
+.comparativa-section {
+  background: rgba(255,255,255,0.01);
   border: 1px solid var(--border-color);
-  border-radius: 50%;
+  padding: 28px;
+  border-radius: var(--radius-lg);
+}
+
+.section-subtitle {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  margin-bottom: 24px;
+}
+
+.comparativa-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.comparativa-card {
+  background: rgba(11,15,26,0.6);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-md);
+  padding: 16px 20px;
+}
+
+.comp-card-header h4 {
+  font-size: 0.95rem;
+  color: var(--text-secondary);
+  margin-bottom: 14px;
+  font-weight: 700;
+}
+
+.comp-flow {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.comp-step {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.step-badge {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
+.nivel-logrado {
+  background: rgba(64,192,87,0.15);
+  color: var(--success-400);
+  border: 1px solid rgba(64,192,87,0.3);
+}
+
+.nivel-proceso {
+  background: rgba(76,110,245,0.15);
+  color: var(--primary-400);
+  border: 1px solid rgba(76,110,245,0.3);
+}
+
+.nivel-iniciado {
+  background: rgba(252,196,25,0.12);
+  color: var(--accent-400);
+  border: 1px solid rgba(252,196,25,0.3);
+}
+
+.step-date {
   font-size: 0.75rem;
+  color: var(--text-muted);
 }
 
-.accesos-acciones {
-  margin-top: auto;
+.step-arrow {
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
 }
 
-/* ═══ UNIDADES ═══ */
+/* ── PLANIFICACIÓN ── */
 .unidades-section .section-header h2 {
   display: flex;
   align-items: center;
@@ -472,7 +687,7 @@ onMounted(cargarDatosPerfil)
   text-transform: uppercase;
 }
 
-/* ═══ EVALUACIONES ═══ */
+/* ── EVALUACIONES ── */
 .evaluaciones-section {
   margin-top: 32px;
 }
@@ -529,9 +744,21 @@ onMounted(cargarDatosPerfil)
   margin-bottom: 4px;
 }
 
-.eval-info p {
-  font-size: 0.85rem;
+.eval-meta code {
+  font-family: var(--font-mono);
+  font-size: 0.78rem;
+  background: rgba(255,255,255,0.05);
+  padding: 2px 6px;
+  border-radius: 4px;
+}
+
+.eval-time {
+  margin-top: 6px;
+  font-size: 0.8rem;
   color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  gap: 4px;
 }
 
 .eval-action {
@@ -543,7 +770,7 @@ onMounted(cargarDatosPerfil)
   color: var(--success-400);
 }
 
-/* ═══ UTIL ═══ */
+/* ── UTIL ── */
 .empty-state-small {
   padding: 24px;
   text-align: center;

@@ -180,3 +180,171 @@ export const ELIMINAR_USUARIO = gql`
     eliminarUsuario(id: $id)
   }
 `;
+
+/* ── Unidades Didácticas ────────────────────────── */
+export const OBTENER_UNIDADES_DIDACTICAS = gql`
+  query ObtenerUnidadesDidacticas {
+    unidadesDidacticas {
+      _id
+      ambito
+      objetivo_general
+      objetivos_aprendizaje
+      destrezas
+      semanas_previstas
+      descripcion
+      tecnica_didactica
+      fecha_inicio
+      fecha_fin
+      activo
+      actividades {
+        id_actividad
+        tipo_actividad
+        descripcion_actividad
+        fecha_actividad
+        activo
+        archivos_adjuntos {
+          tipo
+          url
+        }
+        criterios_evaluacion {
+          id_criterio
+          tipo
+        }
+      }
+    }
+  }
+`;
+
+/* ── Evaluaciones de Estudiantes ─────────────────── */
+export const OBTENER_EVALUACIONES_ESTUDIANTE = gql`
+  query ObtenerEvaluacionesEstudiante {
+    evaluacionesEstudiantes {
+      _id
+      id_actividad
+      id_estudiante
+      historial_versiones {
+        version
+        fecha_registro
+        docente_evaluador
+        evaluaciones_criterio {
+          id_criterio
+          nivel_logro
+          observaciones
+        }
+      }
+      ficha_monitoreo {
+        clasificacion
+        seriacion
+        asimilacion_acomodacion
+        justificacion
+        autoregulacion
+        observaciones
+        acciones_apoyo
+      }
+      actividades_casa_completadas {
+        id_actividad
+        comentario
+        fecha
+      }
+    }
+  }
+`;
+
+/* ── Progreso de Hijo ────────────────────────────── */
+export const OBTENER_PROGRESO_HIJO = gql`
+  query ObtenerProgresoHijo($estudianteId: ID!, $actividadId: ID!) {
+    obtenerProgresoHijo(estudianteId: $estudianteId, actividadId: $actividadId) {
+      id_estudiante
+      id_actividad
+      version
+      fecha_registro
+      evaluaciones_criterio {
+        id_criterio
+        nivel_logro
+        observaciones
+      }
+      ficha_monitoreo {
+        clasificacion
+        seriacion
+        asimilacion_acomodacion
+        justificacion
+        autoregulacion
+        observaciones
+        acciones_apoyo
+      }
+    }
+  }
+`;
+
+/* ── Actividades de Casa ────────────────────────── */
+export const OBTENER_ACTIVIDADES_CASA = gql`
+  query ObtenerActividadesCasa($estudianteId: ID!) {
+    obtenerActividadesCasa(estudianteId: $estudianteId) {
+      unidad_id
+      actividad {
+        id_actividad
+        tipo_actividad
+        descripcion_actividad
+        fecha_actividad
+        activo
+        archivos_adjuntos {
+          tipo
+          url
+        }
+      }
+    }
+  }
+`;
+
+/* ── Mutación para Actividades de Casa ───────────── */
+export const MARCAR_ACTIVIDAD_COMPLETADA = gql`
+  mutation MarcarActividadCompletada($estudianteId: ID!, $actividadId: ID!, $comentario: String) {
+    marcarActividadCompletada(estudianteId: $estudianteId, actividadId: $actividadId, comentario: $comentario) {
+      exito
+      mensaje
+    }
+  }
+`;
+
+/* ── Mutaciones para Docentes (Seguimiento) ──────── */
+export const REGISTRAR_NUEVA_VERSION_EVALUACION = gql`
+  mutation RegistrarNuevaVersionEvaluacion(
+    $id_evaluacion: ID!
+    $docente_evaluador: String!
+    $evaluaciones_criterio: [EvaluacionCriterioInput!]!
+  ) {
+    registrarNuevaVersionEvaluacion(
+      id_evaluacion: $id_evaluacion
+      docente_evaluador: $docente_evaluador
+      evaluaciones_criterio: $evaluaciones_criterio
+    ) {
+      _id
+      historial_versiones {
+        version
+        fecha_registro
+        docente_evaluador
+      }
+    }
+  }
+`;
+
+export const ACTUALIZAR_FICHA_MONITOREO_ESTUDIANTE = gql`
+  mutation ActualizarFichaMonitoreoEstudiante(
+    $id_evaluacion: ID!
+    $ficha: FichaMonitoreoInput!
+  ) {
+    actualizarFichaMonitoreoEstudiante(id_evaluacion: $id_evaluacion, ficha: $ficha) {
+      _id
+      ficha_monitoreo {
+        clasificacion
+        seriacion
+        asimilacion_acomodacion
+        justificacion
+        autoregulacion
+        observaciones
+        acciones_apoyo
+      }
+    }
+  }
+`;
+

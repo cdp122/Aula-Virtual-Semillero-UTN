@@ -38,6 +38,12 @@ const routes = [
         props: true,
       },
       {
+        path: 'grupos/:id/alumno/:alumnoId',
+        name: 'SeguimientoAlumno',
+        component: () => import('../views/docente/SeguimientoAlumno.vue'),
+        props: true,
+      },
+      {
         path: 'planificacion',
         name: 'Planificacion',
         component: UnidadDidacticaView,

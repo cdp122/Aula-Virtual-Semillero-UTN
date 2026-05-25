@@ -36,18 +36,18 @@ const resolvers = {
       try {
         const evaluacion = await EvaluacionEstudianteModelo.findById(id_evaluacion);
         if (!evaluacion) throw new Error('Evaluación no encontrada');
-
+ 
         const nextVersion = evaluacion.historial_versiones.length > 0 
           ? Math.max(...evaluacion.historial_versiones.map(h => h.version)) + 1 
           : 1;
-
+ 
         const nuevaVersion = {
           version: nextVersion,
           fecha_registro: new Date(),
           docente_evaluador,
           evaluaciones_criterio
         };
-
+ 
         evaluacion.historial_versiones.push(nuevaVersion);
         return await evaluacion.save();
       } catch (error) {
@@ -65,6 +65,10 @@ const resolvers = {
         throw new Error(`Error al actualizar ficha de monitoreo: ${error.message}`);
       }
     }
+  },
+  EvaluacionEstudiante: {
+    actividades_casa_completadas: (parent) => parent.actividades_casa_completadas || [],
+    historial_versiones: (parent) => parent.historial_versiones || []
   }
 };
 

@@ -1,8 +1,9 @@
 import { ref, computed } from 'vue';
 import apolloClient from '../graphql/client.js';
-import { LOGIN_MUTATION } from '../graphql/queries.js';
+import axios from 'axios';
 
 const STORAGE_KEY = 'semilleros_utn_usuario';
+const TOKEN_KEY = 'semilleros_utn_token';
 
 /* ── Estado global reactivo ────────────────────── */
 const usuario = ref(cargarDesdeStorage());
@@ -16,11 +17,13 @@ function cargarDesdeStorage() {
   }
 }
 
-function guardarEnStorage(data) {
-  if (data) {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+function guardarEnStorage(user, token) {
+  if (user && token) {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(user));
+    localStorage.setItem(TOKEN_KEY, token);
   } else {
     localStorage.removeItem(STORAGE_KEY);
+    localStorage.removeItem(TOKEN_KEY);
   }
 }
 
@@ -48,20 +51,21 @@ export function useAuth() {
     error.value = null;
 
     try {
-      const { data } = await apolloClient.mutate({
-        mutation: LOGIN_MUTATION,
-        variables: { username, contrasena },
+      const response = await axios.post('http://localhost:4000/auth/login', {
+        username,
+        contrasena
       });
 
-      if (!data?.login) {
+      const { token, usuario: userPayload } = response.data;
+      if (!token || !userPayload) {
         throw new Error('Credenciales incorrectas');
       }
 
-      usuario.value = data.login;
-      guardarEnStorage(data.login);
-      return data.login;
+      usuario.value = userPayload;
+      guardarEnStorage(userPayload, token);
+      return userPayload;
     } catch (err) {
-      error.value = err.message || 'Error al iniciar sesión';
+      error.value = err.response?.data?.mensaje || err.message || 'Error al iniciar sesión';
       throw err;
     } finally {
       cargando.value = false;
@@ -70,7 +74,7 @@ export function useAuth() {
 
   function cerrarSesion() {
     usuario.value = null;
-    guardarEnStorage(null);
+    guardarEnStorage(null, null);
     apolloClient.clearStore();
   }
 
@@ -86,3 +90,4 @@ export function useAuth() {
     cerrarSesion,
   };
 }
+

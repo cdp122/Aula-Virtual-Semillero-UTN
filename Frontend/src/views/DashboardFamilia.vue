@@ -1,10 +1,18 @@
 <script setup>
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
+import { ref, computed, onMounted } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
 import { useAuth } from '../composables/useAuth.js'
+import apolloClient from '../graphql/client.js'
+import { OBTENER_USUARIO_POR_ID } from '../graphql/queries.js'
 
 const router = useRouter()
-const { nombreUsuario, cerrarSesion } = useAuth()
+const route = useRoute()
+const { usuario, nombreUsuario, cerrarSesion } = useAuth()
+
+const hijos = ref([])
+const cargandoHijos = ref(false)
+
+const estaHijoSeleccionado = computed(() => !!route.params.id)
 
 const iniciales = computed(() => {
   if (!nombreUsuario.value) return '?'
@@ -12,10 +20,32 @@ const iniciales = computed(() => {
   return parts.slice(0, 2).map(p => p[0]?.toUpperCase() || '').join('')
 })
 
+async function cargarHijos() {
+  if (!usuario.value?.hijos?.length) return
+  cargandoHijos.value = true
+  try {
+    const resultados = await Promise.all(
+      usuario.value.hijos.map(id =>
+        apolloClient.query({
+          query: OBTENER_USUARIO_POR_ID,
+          variables: { id }
+        }).then(r => r.data.usuarioPorId).catch(() => null)
+      )
+    )
+    hijos.value = resultados.filter(Boolean)
+  } catch (err) {
+    console.error("Error al cargar hijos en navbar", err)
+  } finally {
+    cargandoHijos.value = false
+  }
+}
+
 function handleLogout() {
   cerrarSesion()
   router.push('/')
 }
+
+onMounted(cargarHijos)
 </script>
 
 <template>
@@ -31,6 +61,17 @@ function handleLogout() {
             <span>Semilleros <span class="accent">UTN</span></span>
           </div>
           <div class="navbar-right">
+            <!-- Selector de hijos si hay más de uno y uno está seleccionado -->
+            <div v-if="hijos.length > 1 && estaHijoSeleccionado" class="hijo-switcher-container">
+              <svg class="switcher-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+              <select class="switcher-select" :value="route.params.id" @change="e => e.target.value && router.push(`/familia/hijo/${e.target.value}`)">
+                <option value="" disabled>Cambiar de hijo...</option>
+                <option v-for="h in hijos" :key="h._id" :value="h._id">
+                  {{ h.nombre }}
+                </option>
+              </select>
+            </div>
+
             <div class="user-badge">
               <div class="user-avatar">{{ iniciales }}</div>
               <span class="hide-mobile">{{ nombreUsuario }}</span>
@@ -45,7 +86,7 @@ function handleLogout() {
     </nav>
 
     <main class="familia-main container">
-      <router-view />
+      <router-view :key="route.params.id" />
     </main>
   </div>
 </template>
@@ -100,7 +141,46 @@ function handleLogout() {
 .navbar-right {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 16px;
+}
+
+.hijo-switcher-container {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-glass);
+  border: 1px solid var(--border-color);
+  border-radius: var(--radius-sm);
+  padding: 4px 8px;
+  color: var(--text-secondary);
+  transition: all var(--transition-fast);
+}
+
+.hijo-switcher-container:hover {
+  border-color: var(--border-color-hover);
+  background: var(--bg-glass-hover);
+}
+
+.switcher-icon {
+  color: var(--accent-400);
+  flex-shrink: 0;
+}
+
+.switcher-select {
+  background: transparent;
+  border: none;
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: 0.82rem;
+  font-weight: 600;
+  outline: none;
+  cursor: pointer;
+  padding-right: 4px;
+}
+
+.switcher-select option {
+  background: var(--bg-surface);
+  color: var(--text-primary);
 }
 
 .user-badge {
@@ -133,6 +213,9 @@ function handleLogout() {
 @media (max-width: 640px) {
   .familia-main {
     padding-top: 24px;
+  }
+  .navbar-right {
+    gap: 8px;
   }
 }
 </style>

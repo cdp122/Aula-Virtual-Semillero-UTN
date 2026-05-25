@@ -34,6 +34,15 @@ const FichaMonitoreoSchema = new mongoose.Schema(
   { _id: false }
 );
 
+const ActividadCasaCompletadaSchema = new mongoose.Schema(
+  {
+    id_actividad: { type: String, required: true },
+    comentario: { type: String },
+    fecha: { type: Date, required: true }
+  },
+  { _id: false }
+);
+
 const generarId = () => new mongoose.Types.ObjectId().toString();
 
 const EvaluacionEstudianteSchema = new mongoose.Schema(
@@ -42,7 +51,8 @@ const EvaluacionEstudianteSchema = new mongoose.Schema(
     id_actividad: { type: String, required: true },
     id_estudiante: { type: String, required: true },
     historial_versiones: { type: [HistorialVersionSchema], default: [] },
-    ficha_monitoreo: { type: FichaMonitoreoSchema, default: {} }
+    ficha_monitoreo: { type: FichaMonitoreoSchema, default: {} },
+    actividades_casa_completadas: { type: [ActividadCasaCompletadaSchema], default: [] }
   },
   {
     collection: 'evaluaciones_estudiantes',

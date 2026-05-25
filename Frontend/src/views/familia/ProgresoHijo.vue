@@ -1,17 +1,24 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuth } from '../../composables/useAuth.js'
 import apolloClient from '../../graphql/client.js'
 import { OBTENER_PROGRESO_HIJO } from '../../graphql/queries.js'
 
 const props = defineProps({ id: String, actividadId: String })
 const router = useRouter()
+const { usuario } = useAuth()
 
 const progreso = ref(null)
 const cargando = ref(true)
 
 async function cargarProgreso() {
+  if (!usuario.value?.hijos?.includes(props.id)) {
+    router.push('/familia')
+    return
+  }
   cargando.value = true
+
   try {
     const res = await apolloClient.query({
       query: OBTENER_PROGRESO_HIJO,
@@ -55,6 +62,12 @@ function getLabel(nivel) {
 }
 
 onMounted(cargarProgreso)
+
+watch(() => props.id, (nuevoId) => {
+  if (nuevoId) {
+    cargarProgreso()
+  }
+})
 </script>
 
 <template>

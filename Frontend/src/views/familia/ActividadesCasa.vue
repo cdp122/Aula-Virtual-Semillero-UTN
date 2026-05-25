@@ -1,6 +1,7 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
+import { useAuth } from '../../composables/useAuth.js'
 import apolloClient from '../../graphql/client.js'
 import { 
   OBTENER_ACTIVIDADES_CASA,
@@ -10,6 +11,7 @@ import {
 
 const props = defineProps({ id: String })
 const router = useRouter()
+const { usuario } = useAuth()
 
 const actividades = ref([])
 const actividadesCompletadas = ref(new Set())
@@ -19,7 +21,12 @@ const comentarios = ref({})
 const mensajeExito = ref('')
 
 async function cargarDatos() {
+  if (!usuario.value?.hijos?.includes(props.id)) {
+    router.push('/familia')
+    return
+  }
   cargando.value = true
+
   try {
     // Obtener las actividades de casa disponibles
     const resActividades = await apolloClient.query({
@@ -91,6 +98,12 @@ function volver() {
 }
 
 onMounted(cargarDatos)
+
+watch(() => props.id, (nuevoId) => {
+  if (nuevoId) {
+    cargarDatos()
+  }
+})
 </script>
 
 <template>
