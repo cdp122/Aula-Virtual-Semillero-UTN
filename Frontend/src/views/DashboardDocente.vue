@@ -332,11 +332,15 @@ const iniciales = computed(() => {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
 .dashboard-content {
   flex: 1;
   padding: 32px;
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* ═══ TOPBAR (Mobile) ═══ */

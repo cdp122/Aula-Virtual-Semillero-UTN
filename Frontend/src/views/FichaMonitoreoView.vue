@@ -98,6 +98,8 @@ const saveFicha = () => {
   flex-direction: column;
   gap: 30px;
   height: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .page-header {
@@ -139,6 +141,7 @@ const saveFicha = () => {
   grid-template-columns: 280px 1fr;
   gap: 24px;
   align-items: start;
+  max-width: 100%;
 }
 
 .students-list {
@@ -208,6 +211,8 @@ const saveFicha = () => {
   padding: 30px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.02);
   border: 1px solid #e2e8f0;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 .form-header {
@@ -270,5 +275,30 @@ const saveFicha = () => {
   outline: none;
   border-color: #4CAF50;
   box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .btn-primary {
+    width: 100%;
+  }
+  .layout-grid {
+    grid-template-columns: 1fr;
+  }
+  .dynamic-fields {
+    grid-template-columns: 1fr;
+  }
+  .form-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+  .ficha-form {
+    padding: 20px;
+  }
 }
 </style>

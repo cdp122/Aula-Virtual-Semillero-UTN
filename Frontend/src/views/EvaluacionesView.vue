@@ -101,6 +101,8 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
   display: flex;
   flex-direction: column;
   gap: 30px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .page-header {
@@ -161,6 +163,7 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
   box-shadow: 0 10px 30px rgba(0,0,0,0.04);
   overflow-x: auto;
   border: 1px solid #e2e8f0;
+  max-width: 100%;
 }
 
 .evaluation-matrix {
@@ -282,5 +285,26 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
 .btn-icon:hover {
   background: #f1f5f9;
   color: #3b82f6;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+  .legend-container {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .score-btn {
+    width: 32px;
+    height: 32px;
+    font-size: 0.8rem;
+  }
 }
 </style>

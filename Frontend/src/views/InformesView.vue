@@ -175,6 +175,8 @@ const downloadPDF = async (type) => {
   flex-direction: column;
   gap: 30px;
   height: 100%;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .page-header {
@@ -223,6 +225,7 @@ const downloadPDF = async (type) => {
   grid-template-columns: 280px 1fr;
   gap: 24px;
   align-items: start;
+  max-width: 100%;
 }
 
 .students-list {
@@ -252,6 +255,8 @@ const downloadPDF = async (type) => {
 
 .report-preview {
   display: flex; flex-direction: column; gap: 20px;
+  min-width: 0;
+  max-width: 100%;
 }
 
 .preview-header {
@@ -265,8 +270,10 @@ const downloadPDF = async (type) => {
   padding: 20px;
   border-radius: 12px;
   display: flex;
-  justify-content: center;
+  justify-content: flex-start;
   overflow-x: auto;
+  max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* El "Papel" A4 virtual */
@@ -338,5 +345,41 @@ const downloadPDF = async (type) => {
 }
 .signature-line {
   width: 250px; height: 1px; background-color: #334155; margin: 0 auto 10px auto;
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .header-actions {
+    width: 100%;
+  }
+  .header-actions button {
+    width: 100%;
+    justify-content: center;
+  }
+  .layout-grid {
+    grid-template-columns: 1fr;
+  }
+  .preview-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .preview-header button {
+    width: 100%;
+    justify-content: center;
+  }
+  .report-canvas-wrapper {
+    padding: 10px;
+  }
+  /* On mobile, scale the A4 canvas down so it looks better inside the wrapper */
+  .report-canvas {
+    transform: scale(0.8);
+    transform-origin: top left;
+    margin-bottom: -60mm; /* compensate for the scaled height */
+  }
 }
 </style>

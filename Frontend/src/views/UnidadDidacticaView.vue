@@ -189,6 +189,8 @@ function mostrarToast(message, type) {
   display: flex;
   flex-direction: column;
   gap: 30px;
+  max-width: 100%;
+  min-width: 0;
 }
 
 .page-header {
@@ -214,6 +216,9 @@ function mostrarToast(message, type) {
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.04);
   padding: 40px;
+  max-width: 100%;
+  box-sizing: border-box;
+  overflow-x: hidden;
 }
 
 .stepper {
@@ -321,6 +326,8 @@ function mostrarToast(message, type) {
 
 .editor-container {
   min-height: 300px;
+  max-width: 100%;
+  overflow-x: auto;
 }
 
 :deep(.ql-container) {
@@ -412,5 +419,29 @@ function mostrarToast(message, type) {
 .slide-leave-to {
   opacity: 0;
   transform: translateX(-20px);
+}
+
+@media (max-width: 768px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 15px;
+  }
+  .wizard-container {
+    padding: 20px;
+  }
+  .form-grid {
+    grid-template-columns: 1fr;
+  }
+  .step-label {
+    display: none;
+  }
+  .wizard-actions {
+    flex-direction: column;
+    gap: 10px;
+  }
+  .wizard-actions button {
+    width: 100%;
+  }
 }
 </style>
