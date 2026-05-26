@@ -13,20 +13,56 @@ const selectedStudent = ref(students.value[0])
 // RNF-09: Campos configurables mediante estructura de datos (JSON)
 const fichaConfig = ref([
   { id: 'clasificacion', label: 'Clasificación', type: 'select', options: ['Iniciado', 'En proceso', 'Logrado'] },
-  { id: 'seriacion', label: 'Seriación', type: 'text', placeholder: 'Habilidad de seriación demostrada...' },
-  { id: 'asimilacion_acomodacion', label: 'Asimilación y Acomodación', type: 'text', placeholder: 'Capacidad de asimilación...' },
-  { id: 'justificacion', label: 'Justificación Lógica', type: 'text', placeholder: 'Criterios lógicos utilizados...' },
-  { id: 'autoregulacion', label: 'Autorregulación', type: 'text', placeholder: 'Control de impulsos y atención...' },
+  { id: 'seriacion', label: 'Seriación', type: 'select', options: ['Iniciado', 'En proceso', 'Logrado'] },
+  { id: 'asimilacion_acomodacion', label: 'Asimilación y Acomodación', type: 'select', options: ['Iniciado', 'En proceso', 'Logrado'] },
+  { id: 'justificacion', label: 'Justificación Lógica', type: 'select', options: ['Iniciado', 'En proceso', 'Logrado'] },
+  { id: 'autoregulacion', label: 'Autorregulación', type: 'select', options: ['Iniciado', 'En proceso', 'Logrado'] },
   { id: 'observaciones', label: 'Campo de Observaciones', type: 'textarea', placeholder: 'Observaciones generales del comportamiento y aprendizaje...' },
   { id: 'acciones_apoyo', label: 'Acciones de Apoyo', type: 'textarea', placeholder: 'Estrategias de intervención o apoyo sugeridas...' }
 ])
 
 const formData = ref({})
 
+// Fichas demo "quemadas" en código para la demostración
+const demoFichas = ref({
+  '1': {
+    clasificacion: 'Iniciado',
+    seriacion: 'En proceso',
+    asimilacion_acomodacion: 'Iniciado',
+    justificacion: 'Iniciado',
+    autoregulacion: 'En proceso',
+    observaciones: 'Muestra interés, requiere guía para completar secuencias.',
+    acciones_apoyo: 'Practicar ejercicios de seriación con objetos en casa.'
+  },
+  '2': {
+    clasificacion: 'En proceso',
+    seriacion: 'Iniciado',
+    asimilacion_acomodacion: 'En proceso',
+    justificacion: 'En proceso',
+    autoregulacion: 'Iniciado',
+    observaciones: 'Se distrae con facilidad, necesita pausas cortas.',
+    acciones_apoyo: 'Rutina breve diaria de atención (5 min).' 
+  },
+  '3': {
+    clasificacion: 'Logrado',
+    seriacion: 'Logrado',
+    asimilacion_acomodacion: 'Logrado',
+    justificacion: 'Logrado',
+    autoregulacion: 'En proceso',
+    observaciones: 'Demuestra razonamiento adecuado en tareas guiadas.',
+    acciones_apoyo: 'Proponer retos de nivel superior para consolidar.'
+  }
+})
+
 const selectStudent = (student) => {
   selectedStudent.value = student
-  // Aquí se haría una petición a GraphQL para cargar la ficha existente de este alumno
-  formData.value = {} 
+  // Cargar ficha demo si existe, si no, limpiar
+  formData.value = demoFichas.value[student.id] ? { ...demoFichas.value[student.id] } : {}
+}
+
+// Inicializar formData con la ficha demo del primer alumno (si existe)
+if (selectedStudent.value && demoFichas.value[selectedStudent.value.id]) {
+  formData.value = { ...demoFichas.value[selectedStudent.value.id] }
 }
 
 const saveFicha = () => {

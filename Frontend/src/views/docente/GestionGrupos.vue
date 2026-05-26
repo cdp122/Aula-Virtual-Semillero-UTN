@@ -58,6 +58,15 @@ async function cargarCursos() {
       variables: { docenteId: usuario.value._id }
     })
     cursos.value = data.cursosPorDocente || []
+    try {
+      const gruposStorage = cursos.value.map(curso => ({
+        id: curso._id,
+        nombre: curso.nombre_curso
+      }))
+      localStorage.setItem('semilleros_utn_grupos', JSON.stringify(gruposStorage))
+    } catch (storageError) {
+      console.warn('No se pudo guardar grupos en storage', storageError)
+    }
   } catch (err) {
     errorMsg.value = 'Error al cargar los grupos'
     console.error(err)

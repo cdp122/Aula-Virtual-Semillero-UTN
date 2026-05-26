@@ -1,10 +1,13 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, onMounted } from 'vue'
 import apolloClient from '../graphql/client.js'
 import { CREAR_UNIDAD_DIDACTICA_CRUD } from '../graphql/queries.js'
 
 const currentStep = ref(1)
 const steps = ['Información General', 'Objetivos y Destrezas', 'Descripción y Actividades', 'Revisión']
+const activeTab = ref('nueva')
+const savedUnits = ref([])
+const groups = ref([])
 
 const guardando = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' })
@@ -57,6 +60,16 @@ const save = async () => {
     })
 
     mostrarToast('Unidad Didáctica creada exitosamente', 'success')
+    savedUnits.value.unshift({
+      id: Date.now(),
+      ambito: form.value.ambito || 'Sin ámbito',
+      semanas_previstas: form.value.semanas_previstas,
+      objetivo_general: form.value.objetivo_general || 'Sin objetivo',
+      tecnica_didactica: form.value.tecnica_didactica || 'Sin técnica',
+      fecha: new Date().toLocaleString(),
+      assignedGroups: []
+    })
+    activeTab.value = 'guardadas'
     // Resetear formulario
     setTimeout(() => {
       currentStep.value = 1
@@ -84,6 +97,42 @@ function mostrarToast(message, type) {
   toast.value = { show: true, message, type }
   setTimeout(() => { toast.value.show = false }, 3000)
 }
+
+function cargarGruposDesdeStorage() {
+  try {
+    const raw = localStorage.getItem('semilleros_utn_grupos')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (Array.isArray(parsed) && parsed.length) {
+        groups.value = parsed
+        return
+      }
+    }
+  } catch (storageError) {
+    console.warn('No se pudieron cargar grupos desde storage', storageError)
+  }
+
+  groups.value = [
+    { id: 'g1', nombre: 'Grupo A' },
+    { id: 'g2', nombre: 'Grupo B' },
+    { id: 'g3', nombre: 'Grupo C' }
+  ]
+}
+
+function toggleGroupAssignment(unit, groupId) {
+  if (!unit.assignedGroups) unit.assignedGroups = []
+  if (unit.assignedGroups.includes(groupId)) {
+    unit.assignedGroups = unit.assignedGroups.filter(id => id !== groupId)
+  } else {
+    unit.assignedGroups = [...unit.assignedGroups, groupId]
+  }
+}
+
+function getGroupName(groupId) {
+  return groups.value.find(group => group.id === groupId)?.nombre || 'Grupo'
+}
+
+onMounted(cargarGruposDesdeStorage)
 </script>
 
 <template>
@@ -97,6 +146,52 @@ function mostrarToast(message, type) {
     </header>
 
     <div class="wizard-container">
+      <div class="tabs">
+        <button class="tab" :class="{ active: activeTab === 'nueva' }" @click="activeTab = 'nueva'">
+          Nueva planificación
+        </button>
+        <button class="tab" :class="{ active: activeTab === 'guardadas' }" @click="activeTab = 'guardadas'">
+          Planificaciones guardadas
+        </button>
+      </div>
+
+      <div v-if="activeTab === 'guardadas'" class="saved-panel">
+        <div v-if="savedUnits.length" class="saved-list">
+          <div v-for="unit in savedUnits" :key="unit.id" class="saved-card">
+            <div class="saved-header">
+              <h3>{{ unit.ambito }}</h3>
+              <span class="saved-date">{{ unit.fecha }}</span>
+            </div>
+            <p><strong>Semanas:</strong> {{ unit.semanas_previstas }}</p>
+            <p><strong>Técnica:</strong> {{ unit.tecnica_didactica }}</p>
+            <p class="saved-goal"><strong>Objetivo:</strong> {{ unit.objetivo_general }}</p>
+            <div class="group-assign">
+              <span class="group-label">Asignar a grupos:</span>
+              <div class="group-options">
+                <label v-for="group in groups" :key="group.id" class="group-option">
+                  <input
+                    type="checkbox"
+                    :checked="unit.assignedGroups?.includes(group.id)"
+                    @change="toggleGroupAssignment(unit, group.id)"
+                  />
+                  <span class="group-text">{{ group.nombre }}</span>
+                </label>
+              </div>
+              <div v-if="unit.assignedGroups?.length" class="group-tags">
+                <span v-for="groupId in unit.assignedGroups" :key="groupId" class="group-tag">
+                  {{ getGroupName(groupId) }}
+                </span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div v-else class="saved-empty">
+          No hay planificaciones guardadas todavía.
+        </div>
+        <button class="btn-secondary" @click="activeTab = 'nueva'">Crear nueva planificación</button>
+      </div>
+
+      <div v-else>
       <!-- Stepper -->
       <div class="stepper">
         <div 
@@ -171,6 +266,7 @@ function mostrarToast(message, type) {
           {{ guardando ? 'Guardando...' : 'Guardar Unidad' }}
         </button>
       </div>
+      </div>
     </div>
 
     <!-- Toast -->
@@ -219,6 +315,127 @@ function mostrarToast(message, type) {
   max-width: 100%;
   box-sizing: border-box;
   overflow-x: hidden;
+}
+
+.tabs {
+  display: flex;
+  gap: 12px;
+  margin-bottom: 28px;
+}
+
+.tab {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-glass);
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.tab.active {
+  background: var(--bg-glass-hover);
+  color: var(--text-primary);
+  border-color: var(--border-color-hover);
+}
+
+.saved-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.saved-list {
+  display: grid;
+  gap: 16px;
+}
+
+.saved-card {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  padding: 16px;
+  color: var(--text-secondary);
+}
+
+.saved-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.saved-header h3 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 1.05rem;
+}
+
+.saved-date {
+  color: var(--text-muted);
+  font-size: 0.85rem;
+}
+
+.saved-goal {
+  color: var(--text-secondary);
+}
+
+.group-assign {
+  margin-top: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.group-label {
+  color: var(--text-secondary);
+  font-weight: 600;
+  font-size: 0.9rem;
+}
+
+.group-options {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+}
+
+.group-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.group-option input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  accent-color: #4CAF50;
+}
+
+.group-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.group-tag {
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: rgba(76, 175, 80, 0.15);
+  color: var(--text-primary);
+  font-size: 0.8rem;
+  border: 1px solid rgba(76, 175, 80, 0.35);
+}
+
+.saved-empty {
+  padding: 18px;
+  border-radius: 8px;
+  border: 1px dashed var(--border-color);
+  color: var(--text-muted);
 }
 
 .stepper {
@@ -400,12 +617,12 @@ function mostrarToast(message, type) {
   background-color: var(--bg-glass);
   padding: 24px;
   border-radius: 8px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
 }
 
 .review-card p {
   margin: 12px 0;
-  color: #334155;
+  color: var(--text-secondary);
 }
 
 .slide-enter-active,
