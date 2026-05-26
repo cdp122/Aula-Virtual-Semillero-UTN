@@ -51,7 +51,8 @@ export function useAuth() {
     error.value = null;
 
     try {
-      const response = await axios.post('http://localhost:4000/auth/login', {
+      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:4000';
+      const response = await axios.post(`${baseUrl}/auth/login`, {
         username,
         contrasena
       });

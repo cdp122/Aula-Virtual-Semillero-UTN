@@ -12,7 +12,7 @@ const customFetch = (uri, options) => {
 };
 
 const httpLink = new HttpLink({
-  uri: 'http://localhost:4000/graphql',
+  uri: import.meta.env.VITE_GRAPHQL_URI || 'http://localhost:4000/graphql',
   fetch: customFetch
 });
 

@@ -1,5 +1,9 @@
 {
   "appId": "io.github.cp122.semilleros_utn_movil",
   "appName": "Semilleros",
-  "webDir": "dist"
+  "webDir": "dist",
+  "server": {
+    "cleartext": true,
+    "androidScheme": "http"
+  }
 }
