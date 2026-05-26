@@ -12,7 +12,7 @@ const selectedStudent = ref(students.value[0])
 
 // RNF-09: Campos configurables mediante estructura de datos (JSON)
 const fichaConfig = ref([
-  { id: 'clasificacion', label: 'Clasificación', type: 'text', placeholder: 'Nivel de clasificación alcanzado...' },
+  { id: 'clasificacion', label: 'Clasificación', type: 'select', options: ['Iniciado', 'En proceso', 'Logrado'] },
   { id: 'seriacion', label: 'Seriación', type: 'text', placeholder: 'Habilidad de seriación demostrada...' },
   { id: 'asimilacion_acomodacion', label: 'Asimilación y Acomodación', type: 'text', placeholder: 'Capacidad de asimilación...' },
   { id: 'justificacion', label: 'Justificación Lógica', type: 'text', placeholder: 'Criterios lógicos utilizados...' },
@@ -78,6 +78,14 @@ const saveFicha = () => {
               rows="3"
               class="input-base"
             ></textarea>
+            <select
+              v-else-if="field.type === 'select'"
+              v-model="formData[field.id]"
+              class="input-base"
+            >
+              <option value="" disabled>Selecciona un nivel</option>
+              <option v-for="option in field.options" :key="option" :value="option">{{ option }}</option>
+            </select>
             <input 
               v-else 
               type="text" 
@@ -111,12 +119,12 @@ const saveFicha = () => {
 .title {
   font-size: 2rem;
   font-weight: 700;
-  color: #1a1b26;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .subtitle {
-  color: #64748b;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -145,16 +153,16 @@ const saveFicha = () => {
 }
 
 .students-list {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
 }
 
 .students-list h3 {
   margin: 0 0 16px 0;
-  color: #334155;
+  color: var(--text-primary);
   font-size: 1.1rem;
 }
 
@@ -175,25 +183,25 @@ const saveFicha = () => {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s;
-  color: #475569;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
 .students-list li:hover {
-  background-color: #f8fafc;
+  background-color: var(--bg-glass-hover);
 }
 
 .students-list li.active {
-  background-color: #f0fdf4;
-  color: #166534;
+  background-color: rgba(76, 175, 80, 0.15);
+  color: var(--text-primary);
 }
 
 .avatar {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background-color: #e2e8f0;
-  color: #64748b;
+  background-color: var(--bg-glass);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -206,11 +214,11 @@ const saveFicha = () => {
 }
 
 .ficha-form {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 30px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
   max-width: 100%;
   box-sizing: border-box;
 }
@@ -221,18 +229,18 @@ const saveFicha = () => {
   align-items: center;
   margin-bottom: 24px;
   padding-bottom: 16px;
-  border-bottom: 1px solid #f1f5f9;
+  border-bottom: 1px solid var(--border-color);
 }
 
 .form-header h2 {
   margin: 0;
-  color: #1e293b;
+  color: var(--text-primary);
   font-size: 1.4rem;
 }
 
 .date-badge {
-  background-color: #f1f5f9;
-  color: #64748b;
+  background-color: var(--bg-glass);
+  color: var(--text-secondary);
   padding: 6px 12px;
   border-radius: 20px;
   font-size: 0.85rem;
@@ -257,18 +265,48 @@ const saveFicha = () => {
 
 .form-group label {
   font-weight: 500;
-  color: #334155;
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
 .input-base {
   padding: 12px 16px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 1rem;
   transition: border-color 0.2s;
   font-family: inherit;
   resize: vertical;
+  background: var(--bg-glass);
+  color: var(--text-primary);
+}
+
+select.input-base {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
+    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%),
+    linear-gradient(to right, transparent, transparent);
+  background-position:
+    calc(100% - 18px) calc(50% - 2px),
+    calc(100% - 12px) calc(50% - 2px),
+    0 0;
+  background-size: 6px 6px, 6px 6px, 100% 100%;
+  background-repeat: no-repeat;
+  padding-right: 36px;
+}
+
+select.input-base:invalid {
+  color: var(--text-muted);
+}
+
+:deep(select.input-base option) {
+  background-color: var(--bg-surface);
+  color: var(--text-primary);
+}
+
+:deep(select.input-base option[disabled]) {
+  color: var(--text-muted);
 }
 
 .input-base:focus {

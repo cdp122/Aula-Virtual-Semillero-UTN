@@ -114,12 +114,12 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
 .title {
   font-size: 2rem;
   font-weight: 700;
-  color: #1a1b26;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .subtitle {
-  color: #64748b;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -148,21 +148,21 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
 }
 
 .btn-secondary {
-  background-color: white;
-  color: #334155;
-  border: 1px solid #cbd5e1;
+  background-color: var(--bg-glass);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
 }
 
 .btn-secondary:hover {
-  background-color: #f8fafc;
+  background-color: var(--bg-glass-hover);
 }
 
 .table-container {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.04);
   overflow-x: auto;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
   max-width: 100%;
 }
 
@@ -174,14 +174,14 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
 
 .evaluation-matrix th, .evaluation-matrix td {
   padding: 16px;
-  border-bottom: 1px solid #e2e8f0;
-  border-right: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border-color);
+  border-right: 1px solid var(--border-color);
   white-space: nowrap;
 }
 
 .evaluation-matrix th {
-  background-color: #f8fafc;
-  color: #475569;
+  background-color: var(--bg-glass);
+  color: var(--text-secondary);
   font-weight: 600;
   font-size: 0.9rem;
 }
@@ -189,14 +189,14 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
 .sticky-col {
   position: sticky;
   left: 0;
-  background-color: #f8fafc;
+  background-color: var(--bg-glass);
   z-index: 2;
   box-shadow: 2px 0 5px rgba(0,0,0,0.02);
 }
 
 .font-medium {
   font-weight: 500;
-  color: #1e293b;
+  color: var(--text-primary);
 }
 
 .score-buttons {
@@ -209,16 +209,16 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
   width: 36px;
   height: 36px;
   border-radius: 6px;
-  border: 1px solid #cbd5e1;
-  background: white;
-  color: #64748b;
+  border: 1px solid var(--border-color);
+  background: var(--bg-glass);
+  color: var(--text-secondary);
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .score-btn:hover {
-  background: #f1f5f9;
+  background: var(--bg-glass-hover);
 }
 
 .iniciado-active {
@@ -242,12 +242,12 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
 .legend-container {
   display: flex;
   gap: 20px;
-  background: white;
+  background: var(--bg-surface);
   padding: 12px 20px;
   border-radius: 8px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.02);
   width: fit-content;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
 }
 
 .legend-item {
@@ -255,7 +255,7 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
   align-items: center;
   gap: 8px;
   font-size: 0.9rem;
-  color: #475569;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -272,7 +272,7 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
 .btn-icon {
   background: none;
   border: none;
-  color: #94a3b8;
+  color: var(--text-secondary);
   cursor: pointer;
   padding: 8px;
   border-radius: 6px;
@@ -283,7 +283,7 @@ const getScoreClass = (studentId, criteriaId, targetScore) => {
 }
 
 .btn-icon:hover {
-  background: #f1f5f9;
+  background: var(--bg-glass-hover);
   color: #3b82f6;
 }
 

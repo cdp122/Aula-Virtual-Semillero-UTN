@@ -94,12 +94,12 @@ const saveEvaluation = () => {
 .title {
   font-size: 2rem;
   font-weight: 700;
-  color: #1a1b26;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .subtitle {
-  color: #64748b;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -126,11 +126,11 @@ const saveEvaluation = () => {
 }
 
 .question-card {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 24px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
 }
 
 .question-header {
@@ -141,8 +141,8 @@ const saveEvaluation = () => {
 }
 
 .question-number {
-  background-color: #eff6ff;
-  color: #3b82f6;
+  background-color: rgba(59, 130, 246, 0.15);
+  color: #93c5fd;
   width: 32px;
   height: 32px;
   border-radius: 8px;
@@ -155,7 +155,7 @@ const saveEvaluation = () => {
 
 .question-card h3 {
   margin: 0;
-  color: #1e293b;
+  color: var(--text-primary);
   font-size: 1.1rem;
   font-weight: 600;
 }
@@ -177,7 +177,7 @@ const saveEvaluation = () => {
   align-items: center;
   gap: 8px;
   cursor: pointer;
-  color: #475569;
+  color: var(--text-secondary);
   font-weight: 500;
 }
 
@@ -188,7 +188,7 @@ const saveEvaluation = () => {
 .custom-radio {
   width: 20px;
   height: 20px;
-  border: 2px solid #cbd5e1;
+  border: 2px solid var(--border-color);
   border-radius: 50%;
   display: inline-block;
   position: relative;
@@ -218,19 +218,20 @@ const saveEvaluation = () => {
 .input-base {
   width: 100%;
   padding: 12px 16px;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 0.95rem;
   transition: border-color 0.2s;
   font-family: inherit;
   resize: vertical;
-  background-color: #f8fafc;
+  background-color: var(--bg-glass);
+  color: var(--text-primary);
 }
 
 .input-base:focus {
   outline: none;
   border-color: #3b82f6;
-  background-color: white;
+  background-color: var(--bg-glass-hover);
   box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
 }
 </style>

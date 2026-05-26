@@ -202,17 +202,17 @@ function mostrarToast(message, type) {
 .title {
   font-size: 2rem;
   font-weight: 700;
-  color: #1a1b26;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .subtitle {
-  color: #64748b;
+  color: var(--text-secondary);
   margin: 0;
 }
 
 .wizard-container {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   box-shadow: 0 10px 30px rgba(0,0,0,0.04);
   padding: 40px;
@@ -244,7 +244,7 @@ function mostrarToast(message, type) {
   left: calc(50% + 20px);
   width: calc(100% - 40px);
   height: 3px;
-  background-color: #e2e8f0;
+  background-color: var(--border-color);
   z-index: -1;
 }
 
@@ -256,8 +256,8 @@ function mostrarToast(message, type) {
   width: 40px;
   height: 40px;
   border-radius: 50%;
-  background-color: #e2e8f0;
-  color: #64748b;
+  background-color: var(--bg-glass);
+  color: var(--text-secondary);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -279,11 +279,11 @@ function mostrarToast(message, type) {
 .step-label {
   font-size: 0.9rem;
   font-weight: 500;
-  color: #64748b;
+  color: var(--text-secondary);
 }
 
 .step.active .step-label {
-  color: #1a1b26;
+  color: var(--text-primary);
   font-weight: 600;
 }
 
@@ -305,17 +305,19 @@ function mostrarToast(message, type) {
 
 .form-group label {
   font-weight: 500;
-  color: #334155;
+  color: var(--text-secondary);
   font-size: 0.95rem;
 }
 
 .input-base {
   padding: 12px 16px;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--border-color);
   border-radius: 8px;
   font-size: 1rem;
   transition: border-color 0.2s;
   font-family: inherit;
+  background: var(--bg-glass);
+  color: var(--text-primary);
 }
 
 .input-base:focus {
@@ -340,7 +342,7 @@ function mostrarToast(message, type) {
 :deep(.ql-toolbar) {
   border-top-left-radius: 8px;
   border-top-right-radius: 8px;
-  background-color: #f8fafc;
+  background-color: var(--bg-glass);
 }
 
 .wizard-actions {
@@ -349,7 +351,7 @@ function mostrarToast(message, type) {
   gap: 16px;
   margin-top: 40px;
   padding-top: 24px;
-  border-top: 1px solid #f1f5f9;
+  border-top: 1px solid var(--border-color);
 }
 
 .btn-primary, .btn-secondary, .btn-success {
@@ -372,12 +374,12 @@ function mostrarToast(message, type) {
 }
 
 .btn-secondary {
-  background-color: #f1f5f9;
-  color: #475569;
+  background-color: var(--bg-glass);
+  color: var(--text-primary);
 }
 
 .btn-secondary:hover:not(:disabled) {
-  background-color: #e2e8f0;
+  background-color: var(--bg-glass-hover);
 }
 
 .btn-secondary:disabled {
@@ -395,7 +397,7 @@ function mostrarToast(message, type) {
 }
 
 .review-card {
-  background-color: #f8fafc;
+  background-color: var(--bg-glass);
   padding: 24px;
   border-radius: 8px;
   border: 1px solid #e2e8f0;

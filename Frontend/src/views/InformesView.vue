@@ -188,12 +188,12 @@ const downloadPDF = async (type) => {
 .title {
   font-size: 2rem;
   font-weight: 700;
-  color: #1a1b26;
+  color: var(--text-primary);
   margin: 0 0 8px 0;
 }
 
 .subtitle {
-  color: #64748b;
+  color: var(--text-secondary);
   margin: 0;
 }
 
@@ -217,7 +217,8 @@ const downloadPDF = async (type) => {
 .btn-primary { background-color: #3b82f6; color: white; }
 .btn-primary:hover:not(:disabled) { background-color: #2563eb; }
 .btn-secondary { background-color: white; color: #334155; border: 1px solid #cbd5e1; }
-.btn-secondary:hover:not(:disabled) { background-color: #f8fafc; }
+.btn-secondary { background-color: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-color); }
+.btn-secondary:hover:not(:disabled) { background-color: var(--bg-glass-hover); }
 .btn-primary:disabled, .btn-secondary:disabled { opacity: 0.7; cursor: wait; }
 
 .layout-grid {
@@ -229,26 +230,26 @@ const downloadPDF = async (type) => {
 }
 
 .students-list {
-  background: white;
+  background: var(--bg-surface);
   border-radius: 12px;
   padding: 20px;
   box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border-color);
 }
 
-.students-list h3 { margin: 0 0 16px 0; color: #334155; font-size: 1.1rem; }
+.students-list h3 { margin: 0 0 16px 0; color: var(--text-primary); font-size: 1.1rem; }
 .students-list ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .students-list li {
   display: flex; align-items: center; gap: 12px; padding: 10px 12px;
   border-radius: 8px; cursor: pointer; transition: all 0.2s;
-  color: #475569; font-weight: 500;
+  color: var(--text-secondary); font-weight: 500;
 }
-.students-list li:hover { background-color: #f8fafc; }
-.students-list li.active { background-color: #eff6ff; color: #1d4ed8; }
+.students-list li:hover { background-color: var(--bg-glass-hover); }
+.students-list li.active { background-color: rgba(59, 130, 246, 0.15); color: var(--text-primary); }
 
 .avatar {
   width: 32px; height: 32px; border-radius: 50%;
-  background-color: #e2e8f0; color: #64748b;
+  background-color: var(--bg-glass); color: var(--text-secondary);
   display: flex; align-items: center; justify-content: center; font-weight: bold;
 }
 .students-list li.active .avatar { background-color: #3b82f6; color: white; }
@@ -264,9 +265,10 @@ const downloadPDF = async (type) => {
 }
 
 .preview-header h2 { margin: 0; font-size: 1.2rem; color: #334155; }
+.preview-header h2 { margin: 0; font-size: 1.2rem; color: var(--text-primary); }
 
 .report-canvas-wrapper {
-  background: #e2e8f0;
+  background: var(--bg-glass);
   padding: 20px;
   border-radius: 12px;
   display: flex;
