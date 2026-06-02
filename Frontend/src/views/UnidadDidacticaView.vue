@@ -1,18 +1,27 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import apolloClient from '../graphql/client.js'
-import { CREAR_UNIDAD_DIDACTICA_CRUD } from '../graphql/queries.js'
+import {
+  OBTENER_UNIDADES_DIDACTICAS,
+  CREAR_UNIDAD_DIDACTICA_CRUD,
+  ACTUALIZAR_UNIDAD_DIDACTICA,
+  CLONAR_UNIDAD_DIDACTICA,
+  ARCHIVAR_UNIDAD_DIDACTICA
+} from '../graphql/queries.js'
 
 const currentStep = ref(1)
-const steps = ['Información General', 'Objetivos y Destrezas', 'Descripción y Actividades', 'Revisión']
-const activeTab = ref('nueva')
-const savedUnits = ref([])
-const groups = ref([])
+const steps = ['Información General', 'Objetivos y Destrezas', 'Descripción', 'Revisión']
+const activeTab = ref('guardadas')
 
+const savedUnits = ref([])
+const cargando = ref(false)
 const guardando = ref(false)
 const toast = ref({ show: false, message: '', type: 'success' })
 
-// Data model for the new Unidad Didactica
+// Modo edición
+const modoEdicion = ref(false)
+const editandoId = ref(null)
+
 const form = ref({
   ambito: '',
   semanas_previstas: 1,
@@ -23,73 +32,116 @@ const form = ref({
   tecnica_didactica: '',
   actividades: []
 })
-
 const destrezasInput = ref('')
+const objetivosInput = ref('')
 
-const nextStep = () => {
-  if (currentStep.value < 4) currentStep.value++
+const nextStep = () => { if (currentStep.value < 4) currentStep.value++ }
+const prevStep = () => { if (currentStep.value > 1) currentStep.value-- }
+
+async function cargarUnidades() {
+  cargando.value = true
+  try {
+    const { data } = await apolloClient.query({
+      query: OBTENER_UNIDADES_DIDACTICAS,
+      fetchPolicy: 'network-only'
+    })
+    savedUnits.value = data.unidadesDidacticas || []
+  } catch (e) {
+    console.error(e)
+    mostrarToast('Error al cargar las unidades', 'error')
+  } finally {
+    cargando.value = false
+  }
 }
 
-const prevStep = () => {
-  if (currentStep.value > 1) currentStep.value--
+function iniciarNueva() {
+  modoEdicion.value = false
+  editandoId.value = null
+  currentStep.value = 1
+  form.value = { ambito: '', semanas_previstas: 1, objetivo_general: '', objetivos_aprendizaje: [], destrezas: [], descripcion: '', tecnica_didactica: '', actividades: [] }
+  destrezasInput.value = ''
+  objetivosInput.value = ''
+  activeTab.value = 'nueva'
+}
+
+function iniciarEdicion(unit) {
+  modoEdicion.value = true
+  editandoId.value = unit._id
+  form.value = {
+    ambito: unit.ambito || '',
+    semanas_previstas: unit.semanas_previstas || 1,
+    objetivo_general: unit.objetivo_general || '',
+    objetivos_aprendizaje: unit.objetivos_aprendizaje || [],
+    destrezas: unit.destrezas || [],
+    descripcion: unit.descripcion || '',
+    tecnica_didactica: unit.tecnica_didactica || '',
+    actividades: unit.actividades || []
+  }
+  destrezasInput.value = (unit.destrezas || []).join(', ')
+  objetivosInput.value = (unit.objetivos_aprendizaje || []).join('\n')
+  currentStep.value = 1
+  activeTab.value = 'nueva'
 }
 
 const save = async () => {
   guardando.value = true
   try {
-    // Convertir destrezas separadas por comas a array
-    const destrezasArray = destrezasInput.value
-      .split(',')
-      .map(d => d.trim())
-      .filter(d => d.length > 0)
+    const destrezasArray = destrezasInput.value.split(',').map(d => d.trim()).filter(d => d.length > 0)
+    const objetivosArray = objetivosInput.value.split('\n').map(o => o.trim()).filter(o => o.length > 0)
 
     const input = {
       ambito: form.value.ambito,
-      semanas_previstas: form.value.semanas_previstas,
+      semanas_previstas: Number(form.value.semanas_previstas),
       objetivo_general: form.value.objetivo_general,
+      objetivos_aprendizaje: objetivosArray,
       destrezas: destrezasArray,
-      descripcion: form.value.descripcion,
+      descripcion: form.value.descripcion || '',
       tecnica_didactica: form.value.tecnica_didactica,
       activo: true,
-      actividades: [] // Actividades por defecto vacías al crear la unidad
+      actividades: []
     }
 
-    await apolloClient.mutate({
-      mutation: CREAR_UNIDAD_DIDACTICA_CRUD,
-      variables: { input }
-    })
+    if (modoEdicion.value) {
+      await apolloClient.mutate({
+        mutation: ACTUALIZAR_UNIDAD_DIDACTICA,
+        variables: { id: editandoId.value, input }
+      })
+      mostrarToast('Unidad actualizada exitosamente', 'success')
+    } else {
+      await apolloClient.mutate({
+        mutation: CREAR_UNIDAD_DIDACTICA_CRUD,
+        variables: { input }
+      })
+      mostrarToast('Unidad Didáctica creada exitosamente', 'success')
+    }
 
-    mostrarToast('Unidad Didáctica creada exitosamente', 'success')
-    savedUnits.value.unshift({
-      id: Date.now(),
-      ambito: form.value.ambito || 'Sin ámbito',
-      semanas_previstas: form.value.semanas_previstas,
-      objetivo_general: form.value.objetivo_general || 'Sin objetivo',
-      tecnica_didactica: form.value.tecnica_didactica || 'Sin técnica',
-      fecha: new Date().toLocaleString(),
-      assignedGroups: []
-    })
     activeTab.value = 'guardadas'
-    // Resetear formulario
-    setTimeout(() => {
-      currentStep.value = 1
-      form.value = {
-        ambito: '',
-        semanas_previstas: 1,
-        objetivo_general: '',
-        objetivos_aprendizaje: [],
-        destrezas: [],
-        descripcion: '',
-        tecnica_didactica: '',
-        actividades: []
-      }
-      destrezasInput.value = ''
-    }, 2000)
+    await cargarUnidades()
   } catch (error) {
     console.error('Error al guardar unidad:', error)
-    mostrarToast('Error al crear la unidad didáctica', 'error')
+    mostrarToast('Error al guardar la unidad didáctica', 'error')
   } finally {
     guardando.value = false
+  }
+}
+
+async function clonarUnidad(id) {
+  try {
+    await apolloClient.mutate({ mutation: CLONAR_UNIDAD_DIDACTICA, variables: { id } })
+    mostrarToast('Unidad clonada exitosamente', 'success')
+    await cargarUnidades()
+  } catch (e) {
+    mostrarToast('Error al clonar', 'error')
+  }
+}
+
+async function archivarUnidad(id) {
+  try {
+    await apolloClient.mutate({ mutation: ARCHIVAR_UNIDAD_DIDACTICA, variables: { id } })
+    mostrarToast('Unidad archivada', 'success')
+    await cargarUnidades()
+  } catch (e) {
+    mostrarToast('Error al archivar', 'error')
   }
 }
 
@@ -98,41 +150,7 @@ function mostrarToast(message, type) {
   setTimeout(() => { toast.value.show = false }, 3000)
 }
 
-function cargarGruposDesdeStorage() {
-  try {
-    const raw = localStorage.getItem('semilleros_utn_grupos')
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      if (Array.isArray(parsed) && parsed.length) {
-        groups.value = parsed
-        return
-      }
-    }
-  } catch (storageError) {
-    console.warn('No se pudieron cargar grupos desde storage', storageError)
-  }
-
-  groups.value = [
-    { id: 'g1', nombre: 'Grupo A' },
-    { id: 'g2', nombre: 'Grupo B' },
-    { id: 'g3', nombre: 'Grupo C' }
-  ]
-}
-
-function toggleGroupAssignment(unit, groupId) {
-  if (!unit.assignedGroups) unit.assignedGroups = []
-  if (unit.assignedGroups.includes(groupId)) {
-    unit.assignedGroups = unit.assignedGroups.filter(id => id !== groupId)
-  } else {
-    unit.assignedGroups = [...unit.assignedGroups, groupId]
-  }
-}
-
-function getGroupName(groupId) {
-  return groups.value.find(group => group.id === groupId)?.nombre || 'Grupo'
-}
-
-onMounted(cargarGruposDesdeStorage)
+onMounted(cargarUnidades)
 </script>
 
 <template>
@@ -140,140 +158,136 @@ onMounted(cargarGruposDesdeStorage)
     <header class="page-header">
       <div>
         <h1 class="title">Planificación de Actividades</h1>
-        <p class="subtitle">Crea y gestiona tus unidades didácticas en simples pasos.</p>
+        <p class="subtitle">Crea y gestiona tus unidades didácticas (RF-D02).</p>
       </div>
-      <button class="btn-primary" @click="currentStep = 1" v-if="currentStep > 1">Nueva Unidad</button>
+      <button class="btn-primary" @click="iniciarNueva">+ Nueva Unidad</button>
     </header>
 
     <div class="wizard-container">
       <div class="tabs">
-        <button class="tab" :class="{ active: activeTab === 'nueva' }" @click="activeTab = 'nueva'">
-          Nueva planificación
-        </button>
         <button class="tab" :class="{ active: activeTab === 'guardadas' }" @click="activeTab = 'guardadas'">
           Planificaciones guardadas
         </button>
-      </div>
-
-      <div v-if="activeTab === 'guardadas'" class="saved-panel">
-        <div v-if="savedUnits.length" class="saved-list">
-          <div v-for="unit in savedUnits" :key="unit.id" class="saved-card">
-            <div class="saved-header">
-              <h3>{{ unit.ambito }}</h3>
-              <span class="saved-date">{{ unit.fecha }}</span>
-            </div>
-            <p><strong>Semanas:</strong> {{ unit.semanas_previstas }}</p>
-            <p><strong>Técnica:</strong> {{ unit.tecnica_didactica }}</p>
-            <p class="saved-goal"><strong>Objetivo:</strong> {{ unit.objetivo_general }}</p>
-            <div class="group-assign">
-              <span class="group-label">Asignar a grupos:</span>
-              <div class="group-options">
-                <label v-for="group in groups" :key="group.id" class="group-option">
-                  <input
-                    type="checkbox"
-                    :checked="unit.assignedGroups?.includes(group.id)"
-                    @change="toggleGroupAssignment(unit, group.id)"
-                  />
-                  <span class="group-text">{{ group.nombre }}</span>
-                </label>
-              </div>
-              <div v-if="unit.assignedGroups?.length" class="group-tags">
-                <span v-for="groupId in unit.assignedGroups" :key="groupId" class="group-tag">
-                  {{ getGroupName(groupId) }}
-                </span>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div v-else class="saved-empty">
-          No hay planificaciones guardadas todavía.
-        </div>
-        <button class="btn-secondary" @click="activeTab = 'nueva'">Crear nueva planificación</button>
-      </div>
-
-      <div v-else>
-      <!-- Stepper -->
-      <div class="stepper">
-        <div 
-          v-for="(step, index) in steps" 
-          :key="index"
-          class="step"
-          :class="{ active: currentStep === index + 1, completed: currentStep > index + 1 }"
-        >
-          <div class="step-circle">{{ index + 1 }}</div>
-          <span class="step-label">{{ step }}</span>
-          <div class="step-line" v-if="index < steps.length - 1"></div>
-        </div>
-      </div>
-
-      <!-- Content -->
-      <div class="step-content">
-        <!-- Step 1 -->
-        <transition name="slide" mode="out-in">
-          <div v-if="currentStep === 1" class="form-grid">
-            <div class="form-group">
-              <label>Ámbito</label>
-              <input type="text" v-model="form.ambito" placeholder="Ej. Lógico Matemático" class="input-base" />
-            </div>
-            <div class="form-group">
-              <label>Semanas Previstas</label>
-              <input type="number" v-model="form.semanas_previstas" min="1" class="input-base" />
-            </div>
-            <div class="form-group full-width">
-              <label>Técnica Didáctica</label>
-              <input type="text" v-model="form.tecnica_didactica" placeholder="Ej. Aprendizaje Basado en Proyectos" class="input-base" />
-            </div>
-          </div>
-
-          <!-- Step 2 -->
-          <div v-else-if="currentStep === 2" class="form-grid">
-            <div class="form-group full-width">
-              <label>Objetivo General</label>
-              <textarea v-model="form.objetivo_general" rows="3" class="input-base" placeholder="Describe el objetivo general de la unidad..."></textarea>
-            </div>
-            <div class="form-group full-width">
-              <label>Destrezas (Separadas por comas)</label>
-              <input type="text" v-model="destrezasInput" placeholder="Ej. Clasificar, Ordenar, Sumar..." class="input-base" />
-            </div>
-          </div>
-
-          <!-- Step 3 -->
-          <div v-else-if="currentStep === 3" class="form-grid">
-            <div class="form-group full-width editor-container">
-              <label>Descripción con Texto e Imágenes</label>
-              <QuillEditor theme="snow" v-model:content="form.descripcion" contentType="html" />
-            </div>
-          </div>
-
-          <!-- Step 4 -->
-          <div v-else-if="currentStep === 4" class="review-section">
-            <h3>Revisión Final</h3>
-            <div class="review-card">
-              <p><strong>Ámbito:</strong> {{ form.ambito || 'No especificado' }}</p>
-              <p><strong>Semanas:</strong> {{ form.semanas_previstas }}</p>
-              <p><strong>Objetivo:</strong> {{ form.objetivo_general || 'No especificado' }}</p>
-              <p><strong>Descripción:</strong> Se ha incluido contenido multimedia.</p>
-            </div>
-          </div>
-        </transition>
-      </div>
-
-      <!-- Actions -->
-      <div class="wizard-actions">
-        <button class="btn-secondary" @click="prevStep" :disabled="currentStep === 1 || guardando">Anterior</button>
-        <button class="btn-primary" @click="nextStep" v-if="currentStep < 4">Siguiente</button>
-        <button class="btn-success" @click="save" v-if="currentStep === 4" :disabled="guardando">
-          {{ guardando ? 'Guardando...' : 'Guardar Unidad' }}
+        <button class="tab" :class="{ active: activeTab === 'nueva' }" @click="iniciarNueva">
+          {{ modoEdicion ? 'Editando unidad' : 'Nueva planificación' }}
         </button>
       </div>
+
+      <!-- LISTADO GUARDADO -->
+      <div v-if="activeTab === 'guardadas'" class="saved-panel">
+        <div v-if="cargando" class="loading-msg">Cargando unidades...</div>
+        <div v-else-if="savedUnits.length === 0" class="saved-empty">
+          No hay planificaciones guardadas todavía.
+        </div>
+        <div v-else class="saved-list">
+          <div v-for="unit in savedUnits" :key="unit._id" class="saved-card" :class="{ archived: !unit.activo }">
+            <div class="saved-header">
+              <div>
+                <h3>{{ unit.ambito }}</h3>
+                <span class="saved-status" :class="unit.activo ? 'active' : 'inactive'">
+                  {{ unit.activo ? 'Activa' : 'Archivada' }}
+                </span>
+              </div>
+              <div class="card-actions">
+                <button class="btn-icon" title="Editar" @click="iniciarEdicion(unit)">✏️</button>
+                <button class="btn-icon" title="Clonar" @click="clonarUnidad(unit._id)">📋</button>
+                <button class="btn-icon" title="Archivar" @click="archivarUnidad(unit._id)" v-if="unit.activo">🗃️</button>
+              </div>
+            </div>
+            <p><strong>Semanas:</strong> {{ unit.semanas_previstas }}</p>
+            <p><strong>Técnica:</strong> {{ unit.tecnica_didactica || 'No especificada' }}</p>
+            <p class="saved-goal"><strong>Objetivo:</strong> {{ unit.objetivo_general }}</p>
+            <div v-if="unit.destrezas?.length" class="destrezas-tags">
+              <span v-for="d in unit.destrezas" :key="d" class="destreza-tag">{{ d }}</span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- FORMULARIO WIZARD -->
+      <div v-else>
+        <div class="stepper">
+          <div
+            v-for="(step, index) in steps"
+            :key="index"
+            class="step"
+            :class="{ active: currentStep === index + 1, completed: currentStep > index + 1 }"
+          >
+            <div class="step-circle">{{ index + 1 }}</div>
+            <span class="step-label">{{ step }}</span>
+            <div class="step-line" v-if="index < steps.length - 1"></div>
+          </div>
+        </div>
+
+        <div class="step-content">
+          <transition name="slide" mode="out-in">
+            <!-- Step 1 -->
+            <div v-if="currentStep === 1" class="form-grid">
+              <div class="form-group">
+                <label>Ámbito *</label>
+                <input type="text" v-model="form.ambito" placeholder="Ej. Lógico Matemático" class="input-base" />
+              </div>
+              <div class="form-group">
+                <label>Semanas Previstas</label>
+                <input type="number" v-model="form.semanas_previstas" min="1" class="input-base" />
+              </div>
+              <div class="form-group full-width">
+                <label>Técnica Didáctica</label>
+                <input type="text" v-model="form.tecnica_didactica" placeholder="Ej. Aprendizaje Basado en Proyectos" class="input-base" />
+              </div>
+            </div>
+
+            <!-- Step 2 -->
+            <div v-else-if="currentStep === 2" class="form-grid">
+              <div class="form-group full-width">
+                <label>Objetivo General *</label>
+                <textarea v-model="form.objetivo_general" rows="3" class="input-base" placeholder="Describe el objetivo general de la unidad..."></textarea>
+              </div>
+              <div class="form-group full-width">
+                <label>Objetivos de Aprendizaje (uno por línea)</label>
+                <textarea v-model="objetivosInput" rows="3" class="input-base" placeholder="Objetivo 1&#10;Objetivo 2..."></textarea>
+              </div>
+              <div class="form-group full-width">
+                <label>Destrezas (separadas por comas)</label>
+                <input type="text" v-model="destrezasInput" placeholder="Ej. Clasificar, Ordenar, Sumar..." class="input-base" />
+              </div>
+            </div>
+
+            <!-- Step 3 -->
+            <div v-else-if="currentStep === 3" class="form-grid">
+              <div class="form-group full-width">
+                <label>Descripción de la Unidad</label>
+                <textarea v-model="form.descripcion" rows="5" class="input-base" placeholder="Describe el contenido, contexto y metodología de la unidad..."></textarea>
+              </div>
+            </div>
+
+            <!-- Step 4: Revisión -->
+            <div v-else-if="currentStep === 4" class="review-section">
+              <h3>Revisión Final</h3>
+              <div class="review-card">
+                <p><strong>Ámbito:</strong> {{ form.ambito || 'No especificado' }}</p>
+                <p><strong>Semanas:</strong> {{ form.semanas_previstas }}</p>
+                <p><strong>Técnica:</strong> {{ form.tecnica_didactica || 'No especificada' }}</p>
+                <p><strong>Objetivo:</strong> {{ form.objetivo_general || 'No especificado' }}</p>
+                <p v-if="destrezasInput"><strong>Destrezas:</strong> {{ destrezasInput }}</p>
+                <p v-if="form.descripcion"><strong>Descripción:</strong> {{ form.descripcion.substring(0, 150) }}...</p>
+              </div>
+            </div>
+          </transition>
+        </div>
+
+        <div class="wizard-actions">
+          <button class="btn-secondary" @click="prevStep" :disabled="currentStep === 1 || guardando">Anterior</button>
+          <button class="btn-primary" @click="nextStep" v-if="currentStep < 4">Siguiente</button>
+          <button class="btn-success" @click="save" v-if="currentStep === 4" :disabled="guardando || !form.ambito">
+            {{ guardando ? 'Guardando...' : (modoEdicion ? 'Actualizar Unidad' : 'Guardar Unidad') }}
+          </button>
+        </div>
       </div>
     </div>
 
-    <!-- Toast -->
     <Transition name="toast">
       <div v-if="toast.show" class="toast" :class="'toast-' + toast.type">
-        <svg v-if="toast.type === 'success'" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--success-400)" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-        <svg v-else width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--danger-400)" stroke-width="2"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg>
         {{ toast.message }}
       </div>
     </Transition>
@@ -281,386 +295,71 @@ onMounted(cargarGruposDesdeStorage)
 </template>
 
 <style scoped>
-.view-container {
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 8px 0;
-}
-
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.wizard-container {
-  background: var(--bg-surface);
-  border-radius: 12px;
-  box-shadow: 0 10px 30px rgba(0,0,0,0.04);
-  padding: 40px;
-  max-width: 100%;
-  box-sizing: border-box;
-  overflow-x: hidden;
-}
-
-.tabs {
-  display: flex;
-  gap: 12px;
-  margin-bottom: 28px;
-}
-
-.tab {
-  padding: 10px 16px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-  background: var(--bg-glass);
-  color: var(--text-secondary);
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tab.active {
-  background: var(--bg-glass-hover);
-  color: var(--text-primary);
-  border-color: var(--border-color-hover);
-}
-
-.saved-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
-}
-
-.saved-list {
-  display: grid;
-  gap: 16px;
-}
-
-.saved-card {
-  background: var(--bg-glass);
-  border: 1px solid var(--border-color);
-  border-radius: 10px;
-  padding: 16px;
-  color: var(--text-secondary);
-}
-
-.saved-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  gap: 12px;
-  margin-bottom: 8px;
-}
-
-.saved-header h3 {
-  margin: 0;
-  color: var(--text-primary);
-  font-size: 1.05rem;
-}
-
-.saved-date {
-  color: var(--text-muted);
-  font-size: 0.85rem;
-}
-
-.saved-goal {
-  color: var(--text-secondary);
-}
-
-.group-assign {
-  margin-top: 12px;
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.group-label {
-  color: var(--text-secondary);
-  font-weight: 600;
-  font-size: 0.9rem;
-}
-
-.group-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 10px 16px;
-}
-
-.group-option {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--text-secondary);
-  font-size: 0.9rem;
-  cursor: pointer;
-}
-
-.group-option input[type="checkbox"] {
-  width: 16px;
-  height: 16px;
-  accent-color: #4CAF50;
-}
-
-.group-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-}
-
-.group-tag {
-  padding: 4px 10px;
-  border-radius: 999px;
-  background: rgba(76, 175, 80, 0.15);
-  color: var(--text-primary);
-  font-size: 0.8rem;
-  border: 1px solid rgba(76, 175, 80, 0.35);
-}
-
-.saved-empty {
-  padding: 18px;
-  border-radius: 8px;
-  border: 1px dashed var(--border-color);
-  color: var(--text-muted);
-}
-
-.stepper {
-  display: flex;
-  justify-content: space-between;
-  margin-bottom: 50px;
-  position: relative;
-}
-
-.step {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  z-index: 2;
-  position: relative;
-  flex: 1;
-}
-
-.step-line {
-  position: absolute;
-  top: 20px;
-  left: calc(50% + 20px);
-  width: calc(100% - 40px);
-  height: 3px;
-  background-color: var(--border-color);
-  z-index: -1;
-}
-
-.step.completed .step-line {
-  background-color: #4CAF50;
-}
-
-.step-circle {
-  width: 40px;
-  height: 40px;
-  border-radius: 50%;
-  background-color: var(--bg-glass);
-  color: var(--text-secondary);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-weight: 600;
-  transition: all 0.3s ease;
-}
-
-.step.active .step-circle {
-  background-color: #4CAF50;
-  color: white;
-  box-shadow: 0 0 0 4px rgba(76, 175, 80, 0.2);
-}
-
-.step.completed .step-circle {
-  background-color: #4CAF50;
-  color: white;
-}
-
-.step-label {
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--text-secondary);
-}
-
-.step.active .step-label {
-  color: var(--text-primary);
-  font-weight: 600;
-}
-
-.form-grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 24px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.full-width {
-  grid-column: 1 / -1;
-}
-
-.form-group label {
-  font-weight: 500;
-  color: var(--text-secondary);
-  font-size: 0.95rem;
-}
-
-.input-base {
-  padding: 12px 16px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 1rem;
-  transition: border-color 0.2s;
-  font-family: inherit;
-  background: var(--bg-glass);
-  color: var(--text-primary);
-}
-
-.input-base:focus {
-  outline: none;
-  border-color: #4CAF50;
-  box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
-}
-
-.editor-container {
-  min-height: 300px;
-  max-width: 100%;
-  overflow-x: auto;
-}
-
-:deep(.ql-container) {
-  min-height: 250px;
-  font-size: 1rem;
-  border-bottom-left-radius: 8px;
-  border-bottom-right-radius: 8px;
-}
-
-:deep(.ql-toolbar) {
-  border-top-left-radius: 8px;
-  border-top-right-radius: 8px;
-  background-color: var(--bg-glass);
-}
-
-.wizard-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: 16px;
-  margin-top: 40px;
-  padding-top: 24px;
-  border-top: 1px solid var(--border-color);
-}
-
-.btn-primary, .btn-secondary, .btn-success {
-  padding: 12px 24px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-  font-size: 0.95rem;
-}
-
-.btn-primary {
-  background-color: #3b82f6;
-  color: white;
-}
-
-.btn-primary:hover {
-  background-color: #2563eb;
-}
-
-.btn-secondary {
-  background-color: var(--bg-glass);
-  color: var(--text-primary);
-}
-
-.btn-secondary:hover:not(:disabled) {
-  background-color: var(--bg-glass-hover);
-}
-
-.btn-secondary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.btn-success {
-  background-color: #4CAF50;
-  color: white;
-}
-
-.btn-success:hover {
-  background-color: #43a047;
-}
-
-.review-card {
-  background-color: var(--bg-glass);
-  padding: 24px;
-  border-radius: 8px;
-  border: 1px solid var(--border-color);
-}
-
-.review-card p {
-  margin: 12px 0;
-  color: var(--text-secondary);
-}
-
-.slide-enter-active,
-.slide-leave-active {
-  transition: all 0.3s ease-out;
-}
-
-.slide-enter-from {
-  opacity: 0;
-  transform: translateX(20px);
-}
-
-.slide-leave-to {
-  opacity: 0;
-  transform: translateX(-20px);
-}
-
+.view-container { display: flex; flex-direction: column; gap: 30px; max-width: 100%; min-width: 0; }
+.page-header { display: flex; justify-content: space-between; align-items: center; }
+.title { font-size: 2rem; font-weight: 700; color: var(--text-primary); margin: 0 0 8px 0; }
+.subtitle { color: var(--text-secondary); margin: 0; }
+.wizard-container { background: var(--bg-surface); border-radius: 12px; padding: 40px; box-sizing: border-box; overflow-x: hidden; border: 1px solid var(--border-color); }
+.tabs { display: flex; gap: 12px; margin-bottom: 28px; }
+.tab { padding: 10px 16px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-glass); color: var(--text-secondary); font-weight: 600; cursor: pointer; transition: all 0.2s; }
+.tab.active { background: var(--bg-glass-hover); color: var(--text-primary); border-color: var(--border-color-hover); }
+.loading-msg { text-align: center; padding: 40px; color: var(--text-muted); }
+.saved-panel { display: flex; flex-direction: column; gap: 16px; }
+.saved-list { display: grid; gap: 16px; }
+.saved-card { background: var(--bg-glass); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px; color: var(--text-secondary); }
+.saved-card.archived { opacity: 0.6; }
+.saved-header { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 8px; }
+.saved-header h3 { margin: 0; color: var(--text-primary); font-size: 1.05rem; }
+.saved-status { font-size: 0.75rem; padding: 2px 8px; border-radius: 999px; font-weight: 600; }
+.saved-status.active { background: rgba(34,197,94,0.15); color: #22c55e; }
+.saved-status.inactive { background: rgba(239,68,68,0.1); color: #ef4444; }
+.card-actions { display: flex; gap: 6px; }
+.btn-icon { background: none; border: 1px solid var(--border-color); border-radius: 6px; padding: 4px 8px; cursor: pointer; font-size: 0.9rem; transition: all 0.2s; }
+.btn-icon:hover { background: var(--bg-glass-hover); }
+.saved-goal { color: var(--text-secondary); }
+.saved-empty { padding: 18px; border-radius: 8px; border: 1px dashed var(--border-color); color: var(--text-muted); }
+.destrezas-tags { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 10px; }
+.destreza-tag { padding: 3px 10px; border-radius: 999px; background: rgba(76,110,245,0.12); color: var(--primary-400); font-size: 0.8rem; border: 1px solid rgba(76,110,245,0.2); }
+.stepper { display: flex; justify-content: space-between; margin-bottom: 50px; position: relative; }
+.step { display: flex; flex-direction: column; align-items: center; gap: 12px; z-index: 2; position: relative; flex: 1; }
+.step-line { position: absolute; top: 20px; left: calc(50% + 20px); width: calc(100% - 40px); height: 3px; background-color: var(--border-color); z-index: -1; }
+.step.completed .step-line { background-color: #4CAF50; }
+.step-circle { width: 40px; height: 40px; border-radius: 50%; background-color: var(--bg-glass); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-weight: 600; transition: all 0.3s ease; }
+.step.active .step-circle { background-color: #4CAF50; color: white; box-shadow: 0 0 0 4px rgba(76,175,80,0.2); }
+.step.completed .step-circle { background-color: #4CAF50; color: white; }
+.step-label { font-size: 0.9rem; font-weight: 500; color: var(--text-secondary); }
+.step.active .step-label { color: var(--text-primary); font-weight: 600; }
+.form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+.form-group { display: flex; flex-direction: column; gap: 8px; }
+.full-width { grid-column: 1 / -1; }
+.form-group label { font-weight: 500; color: var(--text-secondary); font-size: 0.95rem; }
+.input-base { padding: 12px 16px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; transition: border-color 0.2s; font-family: inherit; background: var(--bg-glass); color: var(--text-primary); resize: vertical; }
+.input-base:focus { outline: none; border-color: #4CAF50; box-shadow: 0 0 0 3px rgba(76,175,80,0.1); }
+.review-section h3 { margin: 0 0 16px; color: var(--text-primary); }
+.review-card { background-color: var(--bg-glass); padding: 24px; border-radius: 8px; border: 1px solid var(--border-color); }
+.review-card p { margin: 10px 0; color: var(--text-secondary); }
+.wizard-actions { display: flex; justify-content: flex-end; gap: 16px; margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border-color); }
+.btn-primary, .btn-secondary, .btn-success { padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; font-size: 0.95rem; }
+.btn-primary { background-color: #3b82f6; color: white; }
+.btn-primary:hover:not(:disabled) { background-color: #2563eb; }
+.btn-secondary { background-color: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-color); }
+.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-success { background-color: #4CAF50; color: white; }
+.btn-success:disabled { opacity: 0.6; cursor: not-allowed; }
+.toast { position: fixed; bottom: 24px; right: 24px; padding: 14px 20px; border-radius: 10px; color: white; font-weight: 600; z-index: 9999; }
+.toast-success { background: #22c55e; }
+.toast-error { background: #ef4444; }
+.toast-enter-active, .toast-leave-active { transition: all 0.3s; }
+.toast-enter-from, .toast-leave-to { opacity: 0; transform: translateY(10px); }
+.slide-enter-active, .slide-leave-active { transition: all 0.3s ease-out; }
+.slide-enter-from { opacity: 0; transform: translateX(20px); }
+.slide-leave-to { opacity: 0; transform: translateX(-20px); }
 @media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-  .wizard-container {
-    padding: 20px;
-  }
-  .form-grid {
-    grid-template-columns: 1fr;
-  }
-  .step-label {
-    display: none;
-  }
-  .wizard-actions {
-    flex-direction: column;
-    gap: 10px;
-  }
-  .wizard-actions button {
-    width: 100%;
-  }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 15px; }
+  .wizard-container { padding: 20px; }
+  .form-grid { grid-template-columns: 1fr; }
+  .step-label { display: none; }
+  .wizard-actions { flex-direction: column; gap: 10px; }
+  .wizard-actions button { width: 100%; }
 }
 </style>

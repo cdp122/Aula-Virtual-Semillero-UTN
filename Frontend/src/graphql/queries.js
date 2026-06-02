@@ -233,6 +233,94 @@ export const CREAR_UNIDAD_DIDACTICA_CRUD = gql`
   }
 `;
 
+/* ── Unidades Didácticas (adicionales) ─────────────── */
+export const ACTUALIZAR_UNIDAD_DIDACTICA = gql`
+  mutation ActualizarUnidadDidactica($id: ID!, $input: UnidadDidacticaActualizacionInput!) {
+    actualizarUnidadDidactica(id: $id, input: $input) {
+      _id
+      ambito
+      objetivo_general
+      objetivos_aprendizaje
+      destrezas
+      semanas_previstas
+      descripcion
+      tecnica_didactica
+      fecha_inicio
+      fecha_fin
+      activo
+      actividades {
+        id_actividad
+        tipo_actividad
+        descripcion_actividad
+        fecha_actividad
+        activo
+        criterios_evaluacion {
+          id_criterio
+          tipo
+        }
+      }
+    }
+  }
+`;
+
+export const CLONAR_UNIDAD_DIDACTICA = gql`
+  mutation ClonarUnidadDidactica($id: ID!) {
+    clonarUnidadDidactica(id: $id) {
+      _id
+      ambito
+      objetivo_general
+      destrezas
+      semanas_previstas
+      tecnica_didactica
+      activo
+    }
+  }
+`;
+
+export const ARCHIVAR_UNIDAD_DIDACTICA = gql`
+  mutation ArchivarUnidadDidactica($id: ID!) {
+    archivarUnidadDidactica(id: $id) {
+      _id
+      ambito
+      activo
+    }
+  }
+`;
+
+/* ── Autoevaluación Docente ─────────────────────── */
+export const OBTENER_AUTOEVALUACIONES_DOCENTES = gql`
+  query ObtenerAutoevaluacionesDocentes {
+    autoevaluacionesDocentes {
+      _id
+      id_actividad
+      id_docente
+      fecha_completado
+      respuestas_formulario {
+        pregunta
+        respuesta
+        reflexion
+      }
+    }
+  }
+`;
+
+export const REGISTRAR_AUTOEVALUACION_DOCENTE = gql`
+  mutation RegistrarAutoevaluacionDocente(
+    $actividadId: ID!
+    $docenteId: ID!
+    $respuestasInput: [RespuestaAutoevaluacionInput!]!
+  ) {
+    registrarAutoevaluacionDocente(
+      actividadId: $actividadId
+      docenteId: $docenteId
+      respuestasInput: $respuestasInput
+    ) {
+      _id
+      fecha_completado
+    }
+  }
+`;
+
 /* ── Evaluaciones de Estudiantes ─────────────────── */
 export const OBTENER_EVALUACIONES_ESTUDIANTE = gql`
   query ObtenerEvaluacionesEstudiante {

@@ -1,50 +1,146 @@
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, onMounted } from 'vue'
+import { useAuth } from '../composables/useAuth.js'
+import apolloClient from '../graphql/client.js'
+import {
+  CURSOS_POR_DOCENTE,
+  OBTENER_UNIDADES_DIDACTICAS,
+  OBTENER_EVALUACIONES_ESTUDIANTE
+} from '../graphql/queries.js'
 import html2pdf from 'html2pdf.js'
 
-const students = ref([
-  { id: '1', nombre: 'Ana García' },
-  { id: '2', nombre: 'Carlos López' },
-  { id: '3', nombre: 'María Rodríguez' }
-])
+const { usuario } = useAuth()
 
-const selectedStudent = ref(students.value[0])
+const cursos = ref([])
+const cursoSeleccionado = ref(null)
+const students = ref([])
+const selectedStudent = ref(null)
+const unidades = ref([])
+const evaluaciones = ref([])
+const cargando = ref(false)
 const isGenerating = ref(false)
 
-const downloadPDF = async (type) => {
-  isGenerating.value = true
-  
-  const element = type === 'individual' ? document.getElementById('report-individual') : document.getElementById('report-group')
-  
-  // RNF-04: html2pdf genera localmente sin colapsar el backend
-  const opt = {
-    margin:       [15, 15, 15, 15],
-    filename:     type === 'individual' ? `Informe_${selectedStudent.value.nombre.replace(' ', '_')}.pdf` : 'Resumen_Grupal.pdf',
-    image:        { type: 'jpeg', quality: 0.98 },
-    html2canvas:  { scale: 2, useCORS: true },
-    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
-  };
+// Evaluaciones del alumno seleccionado (con historial inmutable)
+const evaluacionesAlumno = computed(() => {
+  if (!selectedStudent.value) return []
+  return evaluaciones.value.filter(e => e.id_estudiante === selectedStudent.value.id_estudiante)
+})
 
-  // Pequeño timeout para asegurar que el elemento está renderizado
+// Ficha de monitoreo del alumno
+const fichaAlumno = computed(() => {
+  const ev = evaluacionesAlumno.value.find(e => e.ficha_monitoreo)
+  return ev?.ficha_monitoreo || null
+})
+
+function getActividadDescripcion(id_actividad) {
+  for (const u of unidades.value) {
+    const act = (u.actividades || []).find(a => a.id_actividad === id_actividad)
+    if (act) return act.descripcion_actividad
+  }
+  return id_actividad
+}
+
+function getNivelLabel(nivel) {
+  if (!nivel) return '-'
+  if (nivel === 'LOGRADO') return 'Logrado'
+  if (nivel === 'EN PROCESO') return 'En Proceso'
+  if (nivel === 'INICIADO') return 'Iniciado'
+  return nivel
+}
+
+function getNivelClass(nivel) {
+  if (nivel === 'LOGRADO') return 'logrado'
+  if (nivel === 'EN PROCESO') return 'proceso'
+  return 'iniciado'
+}
+
+async function cargarDatos() {
+  if (!usuario.value?._id) return
+  cargando.value = true
+  try {
+    const { data } = await apolloClient.query({
+      query: CURSOS_POR_DOCENTE,
+      variables: { docenteId: usuario.value._id },
+      fetchPolicy: 'network-only'
+    })
+    cursos.value = data.cursosPorDocente || []
+    if (cursos.value.length > 0) {
+      cursoSeleccionado.value = cursos.value[0]
+      students.value = cursoSeleccionado.value.estudiantes || []
+      if (students.value.length > 0) {
+        selectedStudent.value = students.value[0]
+      }
+    }
+
+    const resUnidades = await apolloClient.query({
+      query: OBTENER_UNIDADES_DIDACTICAS,
+      fetchPolicy: 'network-only'
+    })
+    unidades.value = resUnidades.data.unidadesDidacticas || []
+
+    const resEvals = await apolloClient.query({
+      query: OBTENER_EVALUACIONES_ESTUDIANTE,
+      fetchPolicy: 'network-only'
+    })
+    evaluaciones.value = resEvals.data.evaluacionesEstudiantes || []
+  } catch (e) {
+    console.error(e)
+  } finally {
+    cargando.value = false
+  }
+}
+
+async function downloadPDF(type) {
+  isGenerating.value = true
+  const elementId = type === 'individual' ? 'report-individual' : 'report-group'
+  const element = document.getElementById(elementId)
+  if (!element) { isGenerating.value = false; return }
+
+  const opt = {
+    margin: [15, 15, 15, 15],
+    filename: type === 'individual'
+      ? `Informe_${selectedStudent.value?.nombre?.replace(/ /g, '_') || 'alumno'}.pdf`
+      : `Resumen_Grupal_${cursoSeleccionado.value?.nombre_curso || 'Curso'}.pdf`,
+    image: { type: 'jpeg', quality: 0.98 },
+    html2canvas: { scale: 2, useCORS: true },
+    jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+  }
+
   setTimeout(async () => {
     try {
-      if (type === 'grupal') {
-        element.style.display = 'block'; // Mostrar temporalmente para el canvas
-      }
-      
+      if (type === 'grupal') element.style.display = 'block'
       await html2pdf().set(opt).from(element).save()
-      
-      if (type === 'grupal') {
-        element.style.display = 'none';
-      }
-    } catch (error) {
-      console.error('Error al generar PDF:', error)
-      alert('Hubo un error al generar el PDF.')
+      if (type === 'grupal') element.style.display = 'none'
+    } catch (e) {
+      console.error(e)
     } finally {
       isGenerating.value = false
     }
   }, 100)
 }
+
+// Estadísticas grupales
+const statsGrupal = computed(() => {
+  const stats = { logrado: 0, proceso: 0, iniciado: 0, total: students.value.length }
+  students.value.forEach(s => {
+    const evs = evaluaciones.value.filter(e => e.id_estudiante === s.id_estudiante)
+    if (evs.length === 0) { stats.iniciado++; return }
+    let maxNivel = 'INICIADO'
+    evs.forEach(ev => {
+      const ultima = ev.historial_versiones?.[ev.historial_versiones.length - 1]
+      ultima?.evaluaciones_criterio?.forEach(c => {
+        if (c.nivel_logro === 'LOGRADO') maxNivel = 'LOGRADO'
+        else if (c.nivel_logro === 'EN PROCESO' && maxNivel !== 'LOGRADO') maxNivel = 'EN PROCESO'
+      })
+    })
+    if (maxNivel === 'LOGRADO') stats.logrado++
+    else if (maxNivel === 'EN PROCESO') stats.proceso++
+    else stats.iniciado++
+  })
+  return stats
+})
+
+onMounted(cargarDatos)
 </script>
 
 <template>
@@ -52,24 +148,27 @@ const downloadPDF = async (type) => {
     <header class="page-header">
       <div>
         <h1 class="title">Informes y Exportación</h1>
-        <p class="subtitle">Genera reportes PDF del historial inmutable de evaluaciones.</p>
+        <p class="subtitle">Genera reportes PDF con historial inmutable de evaluaciones (RF-D10).</p>
       </div>
       <div class="header-actions">
-        <button class="btn-secondary" @click="downloadPDF('grupal')" :disabled="isGenerating">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
-          Resumen Grupal
+        <button class="btn-secondary" @click="downloadPDF('grupal')" :disabled="isGenerating || cargando">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Resumen Grupal PDF
         </button>
       </div>
     </header>
 
-    <div class="layout-grid">
+    <div v-if="cargando" class="loading-msg">Cargando datos...</div>
+
+    <div v-else class="layout-grid">
+      <!-- Lista alumnos -->
       <aside class="students-list">
         <h3>Informes Individuales</h3>
         <ul>
-          <li 
-            v-for="student in students" 
-            :key="student.id"
-            :class="{ active: selectedStudent?.id === student.id }"
+          <li
+            v-for="student in students"
+            :key="student.id_estudiante"
+            :class="{ active: selectedStudent?.id_estudiante === student.id_estudiante }"
             @click="selectedStudent = student"
           >
             <div class="avatar">{{ student.nombre.charAt(0) }}</div>
@@ -78,91 +177,126 @@ const downloadPDF = async (type) => {
         </ul>
       </aside>
 
+      <!-- Preview del informe -->
       <main class="report-preview">
         <div class="preview-header">
           <h2>Previsualización</h2>
-          <button class="btn-primary" @click="downloadPDF('individual')" :disabled="isGenerating">
-             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:8px; vertical-align:middle"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
-            {{ isGenerating ? 'Generando PDF...' : 'Descargar PDF' }}
+          <button class="btn-primary" @click="downloadPDF('individual')" :disabled="isGenerating || !selectedStudent">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+            {{ isGenerating ? 'Generando...' : 'Descargar PDF' }}
           </button>
         </div>
 
         <div class="report-canvas-wrapper">
-          <!-- A4 Canvas aspect ratio visualization -->
-          <div id="report-individual" class="report-canvas">
+          <div id="report-individual" class="report-canvas" v-if="selectedStudent">
+            <!-- Cabecera PDF -->
             <div class="report-header-pdf">
               <div class="logo-placeholder">UTN</div>
               <div class="report-titles">
                 <h2>Informe de Evolución y Monitoreo</h2>
-                <p>Aula Virtual - Proyecto TSIE</p>
+                <p>Aula Virtual Semillero — {{ cursoSeleccionado?.nombre_curso }}</p>
               </div>
             </div>
-            
+
+            <!-- Datos básicos -->
             <div class="report-info">
               <p><strong>Estudiante:</strong> {{ selectedStudent.nombre }}</p>
-              <p><strong>Fecha de emisión:</strong> {{ new Date().toLocaleDateString() }}</p>
-              <p><strong>Unidad Didáctica:</strong> Pensamiento Lógico Matemático</p>
+              <p><strong>Fecha de emisión:</strong> {{ new Date().toLocaleDateString('es-EC') }}</p>
+              <p><strong>Docente evaluador:</strong> {{ usuario?.nombre || '-' }}</p>
             </div>
 
+            <!-- Historial de Evaluaciones -->
             <div class="report-section">
-              <h3>1. Historial de Evaluaciones (Trazabilidad)</h3>
-              <table class="pdf-table">
-                <thead>
-                  <tr>
-                    <th>Fecha</th>
-                    <th>Criterio Evaluado</th>
-                    <th>Nivel</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr>
-                    <td>10/05/2026</td>
-                    <td>Clasifica objetos por color</td>
-                    <td><span class="badge logrado">Logrado</span></td>
-                  </tr>
-                  <tr>
-                    <td>15/05/2026</td>
-                    <td>Ordena secuencias lógicas</td>
-                    <td><span class="badge proceso">En Proceso</span></td>
-                  </tr>
-                  <tr>
-                    <td>20/05/2026</td>
-                    <td>Identifica patrones numéricos</td>
-                    <td><span class="badge iniciado">Iniciado</span></td>
-                  </tr>
-                </tbody>
-              </table>
-              <div class="observation-box">
-                <strong>Observación General del Docente:</strong>
-                <p>El estudiante muestra un avance progresivo constante. Su capacidad de concentración ha mejorado drásticamente en la última semana, aunque sigue presentando retos con secuencias alfanuméricas complejas.</p>
-              </div>
+              <h3>1. Historial de Evaluaciones (Trazabilidad Inmutable — RNF-06)</h3>
+              <div v-if="evaluacionesAlumno.length === 0" class="no-data">No se han registrado evaluaciones para este alumno.</div>
+              <template v-else>
+                <div v-for="ev in evaluacionesAlumno" :key="ev._id" style="margin-bottom:16px">
+                  <p style="font-weight:bold;color:#1e293b;font-size:0.9rem;">
+                    Actividad: {{ getActividadDescripcion(ev.id_actividad) }}
+                  </p>
+                  <table class="pdf-table">
+                    <thead>
+                      <tr>
+                        <th>Versión</th>
+                        <th>Fecha</th>
+                        <th>Criterio</th>
+                        <th>Nivel</th>
+                        <th>Observación</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template v-for="ver in ev.historial_versiones" :key="ver.version">
+                        <tr v-for="(c, idx) in ver.evaluaciones_criterio" :key="c.id_criterio">
+                          <td v-if="idx === 0" :rowspan="ver.evaluaciones_criterio.length">v{{ ver.version }}<br><small>{{ new Date(parseInt(ver.fecha_registro)).toLocaleDateString('es-EC') }}</small></td>
+                          <td v-if="idx === 0" :rowspan="ver.evaluaciones_criterio.length"></td>
+                          <td>{{ c.id_criterio }}</td>
+                          <td><span class="badge" :class="getNivelClass(c.nivel_logro)">{{ getNivelLabel(c.nivel_logro) }}</span></td>
+                          <td>{{ c.observaciones || '-' }}</td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+              </template>
             </div>
 
-            <div class="report-section">
+            <!-- Ficha de Monitoreo -->
+            <div class="report-section" v-if="fichaAlumno">
               <h3>2. Ficha de Monitoreo</h3>
               <ul class="pdf-list">
-                <li><strong>Asimilación/Acomodación:</strong> Capaz de adaptar conocimientos previos a nuevos ejercicios visuales.</li>
-                <li><strong>Autorregulación:</strong> Mantiene la atención en periodos cortos de 15 minutos.</li>
-                <li><strong>Acciones de Apoyo:</strong> Se recomienda usar material concreto (bloques lógicos) en casa.</li>
+                <li><strong>Clasificación:</strong> {{ getNivelLabel(fichaAlumno.clasificacion) }}</li>
+                <li><strong>Seriación:</strong> {{ getNivelLabel(fichaAlumno.seriacion) }}</li>
+                <li><strong>Asimilación/Acomodación:</strong> {{ getNivelLabel(fichaAlumno.asimilacion_acomodacion) }}</li>
+                <li><strong>Autorregulación:</strong> {{ getNivelLabel(fichaAlumno.autoregulacion) }}</li>
+                <li v-if="fichaAlumno.justificacion"><strong>Justificación:</strong> {{ fichaAlumno.justificacion }}</li>
+                <li v-if="fichaAlumno.observaciones"><strong>Observaciones:</strong> {{ fichaAlumno.observaciones }}</li>
+                <li v-if="fichaAlumno.acciones_apoyo"><strong>Acciones de Apoyo:</strong> {{ fichaAlumno.acciones_apoyo }}</li>
               </ul>
             </div>
-            
+
             <div class="report-footer">
               <div class="signature-line"></div>
               <p>Firma del Docente Evaluador</p>
             </div>
           </div>
+
+          <div v-else class="no-data-preview">Selecciona un alumno para ver el informe.</div>
         </div>
 
-        <div id="report-group" style="display:none; padding:40px; background:white; color:black; width: 800px;">
-          <div style="text-align:center; margin-bottom: 30px; border-bottom: 2px solid #e2e8f0; padding-bottom: 20px;">
-            <h1 style="margin:0; color:#1e293b;">Resumen Grupal de Evaluaciones</h1>
-            <p style="color:#64748b; margin-top:5px;">Aula Virtual - Fecha: {{ new Date().toLocaleDateString() }}</p>
+        <!-- Informe grupal (oculto, solo para PDF) -->
+        <div id="report-group" style="display:none; padding:40px; background:white; color:black; width:800px;">
+          <div style="text-align:center; margin-bottom:30px; border-bottom:2px solid #e2e8f0; padding-bottom:20px;">
+            <h1 style="margin:0;color:#1e293b;">Resumen Grupal de Evaluaciones</h1>
+            <p style="color:#64748b;margin-top:5px;">{{ cursoSeleccionado?.nombre_curso }} — Fecha: {{ new Date().toLocaleDateString('es-EC') }}</p>
           </div>
-          <h3 style="color:#334155;">Desempeño General</h3>
-          <p>Del total de los estudiantes matriculados, el 65% ha alcanzado el nivel "Logrado" en la mayoría de criterios evaluativos. El 25% se mantiene "En Proceso" y un 10% requiere acompañamiento continuo ("Iniciado").</p>
-          <br>
-          <p><em>Documento autogenerado por el Sistema de Aulas Virtuales.</em></p>
+          <h3 style="color:#334155;">Distribución de Logros (Total: {{ statsGrupal.total }} alumnos)</h3>
+          <table style="width:100%;border-collapse:collapse;margin-bottom:20px;">
+            <thead>
+              <tr>
+                <th style="border:1px solid #cbd5e1;padding:10px;background:#f1f5f9;color:#334155;">Nivel</th>
+                <th style="border:1px solid #cbd5e1;padding:10px;background:#f1f5f9;color:#334155;">Cantidad</th>
+                <th style="border:1px solid #cbd5e1;padding:10px;background:#f1f5f9;color:#334155;">Porcentaje</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td style="border:1px solid #cbd5e1;padding:10px;color:#166534;font-weight:bold;">Logrado</td>
+                <td style="border:1px solid #cbd5e1;padding:10px;text-align:center;">{{ statsGrupal.logrado }}</td>
+                <td style="border:1px solid #cbd5e1;padding:10px;text-align:center;">{{ statsGrupal.total > 0 ? Math.round((statsGrupal.logrado/statsGrupal.total)*100) : 0 }}%</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #cbd5e1;padding:10px;color:#92400e;font-weight:bold;">En Proceso</td>
+                <td style="border:1px solid #cbd5e1;padding:10px;text-align:center;">{{ statsGrupal.proceso }}</td>
+                <td style="border:1px solid #cbd5e1;padding:10px;text-align:center;">{{ statsGrupal.total > 0 ? Math.round((statsGrupal.proceso/statsGrupal.total)*100) : 0 }}%</td>
+              </tr>
+              <tr>
+                <td style="border:1px solid #cbd5e1;padding:10px;color:#991b1b;font-weight:bold;">Iniciado</td>
+                <td style="border:1px solid #cbd5e1;padding:10px;text-align:center;">{{ statsGrupal.iniciado }}</td>
+                <td style="border:1px solid #cbd5e1;padding:10px;text-align:center;">{{ statsGrupal.total > 0 ? Math.round((statsGrupal.iniciado/statsGrupal.total)*100) : 0 }}%</td>
+              </tr>
+            </tbody>
+          </table>
+          <p><em>Documento autogenerado por el Sistema de Aulas Virtuales — RNF-06: Historial inmutable.</em></p>
         </div>
       </main>
     </div>
@@ -170,218 +304,56 @@ const downloadPDF = async (type) => {
 </template>
 
 <style scoped>
-.view-container {
-  display: flex;
-  flex-direction: column;
-  gap: 30px;
-  height: 100%;
-  max-width: 100%;
-  min-width: 0;
-}
-
-.page-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-}
-
-.title {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--text-primary);
-  margin: 0 0 8px 0;
-}
-
-.subtitle {
-  color: var(--text-secondary);
-  margin: 0;
-}
-
-.header-actions {
-  display: flex;
-  align-items: center;
-}
-
-.btn-primary, .btn-secondary {
-  padding: 10px 20px;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s;
-  border: none;
-  font-size: 0.95rem;
-  display: flex;
-  align-items: center;
-}
-
+.view-container { display: flex; flex-direction: column; gap: 30px; height: 100%; max-width: 100%; min-width: 0; }
+.page-header { display: flex; justify-content: space-between; align-items: center; }
+.title { font-size: 2rem; font-weight: 700; color: var(--text-primary); margin: 0 0 8px 0; }
+.subtitle { color: var(--text-secondary); margin: 0; }
+.header-actions { display: flex; align-items: center; }
+.loading-msg { text-align: center; padding: 40px; color: var(--text-muted); }
+.btn-primary, .btn-secondary { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
 .btn-primary { background-color: #3b82f6; color: white; }
-.btn-primary:hover:not(:disabled) { background-color: #2563eb; }
-.btn-secondary { background-color: white; color: #334155; border: 1px solid #cbd5e1; }
-.btn-secondary { background-color: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-color); }
-.btn-secondary:hover:not(:disabled) { background-color: var(--bg-glass-hover); }
 .btn-primary:disabled, .btn-secondary:disabled { opacity: 0.7; cursor: wait; }
-
-.layout-grid {
-  display: grid;
-  grid-template-columns: 280px 1fr;
-  gap: 24px;
-  align-items: start;
-  max-width: 100%;
-}
-
-.students-list {
-  background: var(--bg-surface);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 6px rgba(0,0,0,0.02);
-  border: 1px solid var(--border-color);
-}
-
+.btn-secondary { background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-color); }
+.btn-secondary:hover:not(:disabled) { background: var(--bg-glass-hover); }
+.layout-grid { display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: start; max-width: 100%; }
+.students-list { background: var(--bg-surface); border-radius: 12px; padding: 20px; border: 1px solid var(--border-color); }
 .students-list h3 { margin: 0 0 16px 0; color: var(--text-primary); font-size: 1.1rem; }
 .students-list ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
-.students-list li {
-  display: flex; align-items: center; gap: 12px; padding: 10px 12px;
-  border-radius: 8px; cursor: pointer; transition: all 0.2s;
-  color: var(--text-secondary); font-weight: 500;
-}
+.students-list li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s; color: var(--text-secondary); font-weight: 500; }
 .students-list li:hover { background-color: var(--bg-glass-hover); }
-.students-list li.active { background-color: rgba(59, 130, 246, 0.15); color: var(--text-primary); }
-
-.avatar {
-  width: 32px; height: 32px; border-radius: 50%;
-  background-color: var(--bg-glass); color: var(--text-secondary);
-  display: flex; align-items: center; justify-content: center; font-weight: bold;
-}
+.students-list li.active { background-color: rgba(59,130,246,0.15); color: var(--text-primary); }
+.avatar { width: 32px; height: 32px; border-radius: 50%; background-color: var(--bg-glass); display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--text-secondary); }
 .students-list li.active .avatar { background-color: #3b82f6; color: white; }
-
-.report-preview {
-  display: flex; flex-direction: column; gap: 20px;
-  min-width: 0;
-  max-width: 100%;
-}
-
-.preview-header {
-  display: flex; justify-content: space-between; align-items: center;
-}
-
-.preview-header h2 { margin: 0; font-size: 1.2rem; color: #334155; }
+.report-preview { display: flex; flex-direction: column; gap: 20px; min-width: 0; max-width: 100%; }
+.preview-header { display: flex; justify-content: space-between; align-items: center; }
 .preview-header h2 { margin: 0; font-size: 1.2rem; color: var(--text-primary); }
-
-.report-canvas-wrapper {
-  background: var(--bg-glass);
-  padding: 20px;
-  border-radius: 12px;
-  display: flex;
-  justify-content: flex-start;
-  overflow-x: auto;
-  max-width: 100%;
-  box-sizing: border-box;
-}
-
-/* El "Papel" A4 virtual */
-.report-canvas {
-  background: white;
-  width: 210mm;
-  min-height: 297mm;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.1);
-  padding: 20mm;
-  color: #000;
-  font-family: Arial, sans-serif;
-  box-sizing: border-box;
-}
-
-.report-header-pdf {
-  display: flex;
-  align-items: center;
-  gap: 20px;
-  border-bottom: 2px solid #1e293b;
-  padding-bottom: 20px;
-  margin-bottom: 20px;
-}
-
-.logo-placeholder {
-  width: 60px; height: 60px;
-  background-color: #1e293b; color: white;
-  display: flex; align-items: center; justify-content: center;
-  font-weight: 900; font-size: 1.2rem; border-radius: 8px;
-}
-
-.report-titles h2 { margin: 0 0 5px 0; color: #1e293b; font-size: 1.5rem; }
-.report-titles p { margin: 0; color: #64748b; font-size: 1rem; }
-
-.report-info { margin-bottom: 30px; }
+.report-canvas-wrapper { background: var(--bg-glass); padding: 20px; border-radius: 12px; overflow-x: auto; max-width: 100%; box-sizing: border-box; }
+.no-data-preview { text-align: center; padding: 40px; color: var(--text-muted); }
+.report-canvas { background: white; width: 210mm; min-height: 297mm; box-shadow: 0 10px 25px rgba(0,0,0,0.1); padding: 20mm; color: #000; font-family: Arial, sans-serif; box-sizing: border-box; }
+.report-header-pdf { display: flex; align-items: center; gap: 20px; border-bottom: 2px solid #1e293b; padding-bottom: 20px; margin-bottom: 20px; }
+.logo-placeholder { width: 60px; height: 60px; background-color: #1e293b; color: white; display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.2rem; border-radius: 8px; }
+.report-titles h2 { margin: 0 0 5px 0; color: #1e293b; font-size: 1.4rem; }
+.report-titles p { margin: 0; color: #64748b; }
+.report-info { margin-bottom: 24px; }
 .report-info p { margin: 5px 0; font-size: 0.95rem; }
-
-.report-section { margin-bottom: 30px; }
-.report-section h3 {
-  font-size: 1.1rem; color: #1e293b;
-  border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 15px;
-}
-
-.pdf-table {
-  width: 100%; border-collapse: collapse; margin-bottom: 15px;
-}
-.pdf-table th, .pdf-table td {
-  border: 1px solid #cbd5e1; padding: 10px; text-align: left; font-size: 0.9rem;
-}
+.report-section { margin-bottom: 28px; }
+.report-section h3 { font-size: 1rem; color: #1e293b; border-bottom: 1px solid #cbd5e1; padding-bottom: 8px; margin-bottom: 14px; }
+.no-data { color: #64748b; font-style: italic; font-size: 0.9rem; }
+.pdf-table { width: 100%; border-collapse: collapse; margin-bottom: 12px; font-size: 0.85rem; }
+.pdf-table th, .pdf-table td { border: 1px solid #cbd5e1; padding: 8px; text-align: left; }
 .pdf-table th { background-color: #f1f5f9; color: #334155; }
-
-.badge {
-  padding: 4px 8px; border-radius: 4px; font-size: 0.8rem; font-weight: bold;
-}
+.badge { padding: 3px 7px; border-radius: 4px; font-size: 0.75rem; font-weight: bold; }
 .badge.logrado { background: #dcfce7; color: #166534; }
 .badge.proceso { background: #fef3c7; color: #92400e; }
 .badge.iniciado { background: #fee2e2; color: #991b1b; }
-
-.observation-box {
-  background-color: #f8fafc; padding: 15px; border-radius: 6px; border-left: 4px solid #3b82f6;
-}
-.observation-box strong { font-size: 0.9rem; color: #334155; }
-.observation-box p { margin: 8px 0 0 0; font-size: 0.9rem; line-height: 1.5; color: #475569;}
-
-.pdf-list { padding-left: 20px; font-size: 0.95rem; }
-.pdf-list li { margin-bottom: 10px; line-height: 1.4; }
-
-.report-footer {
-  margin-top: 60px; text-align: center; color: #334155;
-}
-.signature-line {
-  width: 250px; height: 1px; background-color: #334155; margin: 0 auto 10px auto;
-}
-
+.pdf-list { padding-left: 20px; font-size: 0.92rem; }
+.pdf-list li { margin-bottom: 8px; line-height: 1.4; }
+.report-footer { margin-top: 60px; text-align: center; color: #334155; }
+.signature-line { width: 250px; height: 1px; background-color: #334155; margin: 0 auto 10px auto; }
 @media (max-width: 768px) {
-  .page-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-  .header-actions {
-    width: 100%;
-  }
-  .header-actions button {
-    width: 100%;
-    justify-content: center;
-  }
-  .layout-grid {
-    grid-template-columns: 1fr;
-  }
-  .preview-header {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 15px;
-  }
-  .preview-header button {
-    width: 100%;
-    justify-content: center;
-  }
-  .report-canvas-wrapper {
-    padding: 10px;
-  }
-  /* On mobile, scale the A4 canvas down so it looks better inside the wrapper */
-  .report-canvas {
-    transform: scale(0.8);
-    transform-origin: top left;
-    margin-bottom: -60mm; /* compensate for the scaled height */
-  }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 15px; }
+  .layout-grid { grid-template-columns: 1fr; }
+  .preview-header { flex-direction: column; align-items: flex-start; gap: 15px; }
+  .report-canvas { transform: scale(0.7); transform-origin: top left; margin-bottom: -90mm; }
 }
 </style>
