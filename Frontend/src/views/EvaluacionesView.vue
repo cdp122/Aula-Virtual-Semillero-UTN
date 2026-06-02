@@ -286,9 +286,9 @@ onMounted(cargarDatos)
 .curso-selector label { font-weight: 600; color: var(--text-secondary); }
 .curso-btns { display: flex; gap: 8px; flex-wrap: wrap; }
 .curso-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-glass); color: var(--text-secondary); cursor: pointer; transition: all 0.2s; font-size: 0.9rem; }
-.curso-btn.active { background: rgba(76,110,245,0.12); color: var(--primary-400); border-color: var(--primary-400); }
+.curso-btn.active { background: rgba(139,92,246,0.08); color: var(--primary-600); border-color: var(--primary-400); }
 .btn-primary, .btn-secondary { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; font-size: 0.95rem; }
-.btn-primary { background-color: #4CAF50; color: white; }
+.btn-primary { background-color: var(--primary-600); color: white; }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-secondary { background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-color); }
 .legend-container { display: flex; gap: 20px; background: var(--bg-surface); padding: 12px 20px; border-radius: 8px; width: fit-content; border: 1px solid var(--border-color); }

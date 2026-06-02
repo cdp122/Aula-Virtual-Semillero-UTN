@@ -100,7 +100,7 @@ onMounted(cargarHijos)
 
 /* ═══ NAVBAR ═══ */
 .familia-navbar {
-  background: rgba(11,15,26,0.9);
+  background: rgba(255,255,255,0.92);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-color);
   position: sticky;

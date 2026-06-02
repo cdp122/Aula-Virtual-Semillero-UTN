@@ -223,7 +223,7 @@ onMounted(cargarDatos)
 .title { font-size: 2rem; font-weight: 700; color: var(--text-primary); margin: 0 0 8px 0; }
 .subtitle { color: var(--text-secondary); margin: 0; }
 .loading-msg, .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
-.btn-primary { padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; background-color: #4CAF50; color: white; border: none; font-size: 0.95rem; transition: background-color 0.2s; }
+.btn-primary { padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; background-color: var(--primary-600); color: white; border: none; font-size: 0.95rem; transition: background-color 0.2s; }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .layout-grid { display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start; max-width: 100%; }
 .students-list { background: var(--bg-surface); border-radius: 12px; padding: 20px; border: 1px solid var(--border-color); }
@@ -231,9 +231,9 @@ onMounted(cargarDatos)
 .students-list ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .students-list li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s; color: var(--text-secondary); font-weight: 500; }
 .students-list li:hover { background-color: var(--bg-glass-hover); }
-.students-list li.active { background-color: rgba(76,175,80,0.15); color: var(--text-primary); }
+.students-list li.active { background-color: rgba(139,92,246,0.08); color: var(--text-primary); }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background-color: var(--bg-glass); color: var(--text-secondary); display: flex; align-items: center; justify-content: center; font-weight: bold; }
-.students-list li.active .avatar { background-color: #4CAF50; color: white; }
+.students-list li.active .avatar { background-color: var(--primary-600); color: white; }
 .ficha-form { background: var(--bg-surface); border-radius: 12px; padding: 30px; border: 1px solid var(--border-color); max-width: 100%; box-sizing: border-box; }
 .form-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px; padding-bottom: 16px; border-bottom: 1px solid var(--border-color); }
 .form-header h2 { margin: 0; color: var(--text-primary); font-size: 1.4rem; }
@@ -243,7 +243,7 @@ onMounted(cargarDatos)
 .full-width { grid-column: 1 / -1; }
 .form-group label { font-weight: 500; color: var(--text-secondary); font-size: 0.95rem; }
 .input-base { padding: 12px 16px; border: 1px solid var(--border-color); border-radius: 8px; font-size: 1rem; font-family: inherit; resize: vertical; background: var(--bg-glass); color: var(--text-primary); }
-.input-base:focus { outline: none; border-color: #4CAF50; box-shadow: 0 0 0 3px rgba(76,175,80,0.1); }
+.input-base:focus { outline: none; border-color: var(--primary-500); box-shadow: 0 0 0 3px rgba(139,92,246,0.1); }
 .toast { position: fixed; bottom: 24px; right: 24px; padding: 14px 20px; border-radius: 10px; color: white; font-weight: 600; z-index: 9999; }
 .toast-success { background: #22c55e; }
 .toast-error { background: #ef4444; }

@@ -510,13 +510,13 @@ onMounted(cargarCursos)
 }
 
 .sc-blue {
-  background: rgba(76,110,245,0.12);
-  color: var(--primary-400);
+  background: rgba(139,92,246,0.08);
+  color: var(--primary-600);
 }
 
 .sc-gold {
-  background: rgba(252,196,25,0.12);
-  color: var(--accent-400);
+  background: rgba(56,189,248,0.08);
+  color: var(--accent-600);
 }
 
 .stat-card-value {
@@ -650,17 +650,17 @@ onMounted(cargarCursos)
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(76,110,245,0.15);
-  color: var(--primary-400);
+  background: rgba(139,92,246,0.1);
+  color: var(--primary-600);
   border-radius: 50%;
   font-size: 0.7rem;
   font-weight: 700;
 }
 
 .student-chip-more {
-  background: rgba(252,196,25,0.08);
-  border-color: rgba(252,196,25,0.2);
-  color: var(--accent-400);
+  background: rgba(56,189,248,0.06);
+  border-color: rgba(56,189,248,0.15);
+  color: var(--accent-600);
   padding: 4px 12px;
 }
 

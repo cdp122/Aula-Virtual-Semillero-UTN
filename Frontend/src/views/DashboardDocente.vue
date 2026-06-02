@@ -167,6 +167,7 @@ const iniciales = computed(() => {
   bottom: 0;
   z-index: 50;
   transition: transform var(--transition-base);
+  box-shadow: 2px 0 12px rgba(0,0,0,0.04);
 }
 
 .sidebar-header {
@@ -236,8 +237,8 @@ const iniciales = computed(() => {
 }
 
 .sidebar-link.active {
-  background: rgba(76,110,245,0.12);
-  color: var(--primary-400);
+  background: rgba(139,92,246,0.08);
+  color: var(--primary-600);
 }
 
 .sidebar-link-icon {
@@ -251,7 +252,7 @@ const iniciales = computed(() => {
 }
 
 .sidebar-link.active .sidebar-link-icon {
-  background: rgba(76,110,245,0.15);
+  background: rgba(139,92,246,0.1);
 }
 
 /* ═══ SIDEBAR FOOTER ═══ */
@@ -320,9 +321,9 @@ const iniciales = computed(() => {
 }
 
 .sidebar-logout:hover {
-  background: rgba(250,82,82,0.12);
+  background: rgba(239,68,68,0.08);
   border-color: var(--danger-500);
-  color: var(--danger-400);
+  color: var(--danger-500);
 }
 
 /* ═══ MAIN CONTENT ═══ */
@@ -349,7 +350,7 @@ const iniciales = computed(() => {
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: rgba(11,15,26,0.9);
+  background: rgba(255,255,255,0.92);
   backdrop-filter: blur(20px);
   border-bottom: 1px solid var(--border-color);
   position: sticky;
@@ -393,7 +394,7 @@ const iniciales = computed(() => {
   display: none;
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.5);
+  background: rgba(15,23,42,0.3);
   z-index: 45;
 }
 
