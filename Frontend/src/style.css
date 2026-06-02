@@ -57,12 +57,12 @@
   --gray-900: #0F172A;
 
   /* ── Tema Claro "Brote" ─────────────────────── */
-  --bg-body: #FAFAFA;
+  --bg-body: #F8FAFC;
   --bg-surface: #FFFFFF;
   --bg-card: #FFFFFF;
   --bg-glass: rgba(139, 92, 246, 0.04);
   --bg-glass-hover: rgba(139, 92, 246, 0.08);
-  --border-color: #E2E8F0;
+  --border-color: #E8EEF5;
   --border-color-hover: #CBD5E1;
   --text-primary: #1E293B;
   --text-secondary: #64748B;
@@ -558,7 +558,9 @@ p {
 @media (max-width: 768px) {
   .hide-mobile { display: none !important; }
 }
-
+@media (max-width: 640px) {
+  .hide-mobile-sm { display: none !important; }
+}
 @media (min-width: 769px) {
   .show-mobile-only { display: none !important; }
 }

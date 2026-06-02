@@ -263,6 +263,18 @@ export const ACTUALIZAR_UNIDAD_DIDACTICA = gql`
   }
 `;
 
+export const AGREGAR_ACTIVIDAD_A_UNIDAD = gql`
+  mutation AgregarActividadAUnidad($unidadId: ID!, $input: ActividadInput!) {
+    agregarActividadAUnidad(unidadId: $unidadId, input: $input) {
+      _id
+      actividades {
+        id_actividad
+        descripcion_actividad
+      }
+    }
+  }
+`;
+
 export const CLONAR_UNIDAD_DIDACTICA = gql`
   mutation ClonarUnidadDidactica($id: ID!) {
     clonarUnidadDidactica(id: $id) {
@@ -450,6 +462,28 @@ export const ACTUALIZAR_FICHA_MONITOREO_ESTUDIANTE = gql`
         observaciones
         acciones_apoyo
       }
+    }
+  }
+`;
+
+export const REGISTRAR_EVALUACION = gql`
+  mutation RegistrarEvaluacion(
+    $estudianteId: ID!
+    $actividadId: ID!
+    $docenteId: ID!
+    $criteriosInput: [EvaluacionCriterioInput!]!
+    $fichaInput: FichaMonitoreoInput!
+  ) {
+    registrarEvaluacion(
+      estudianteId: $estudianteId
+      actividadId: $actividadId
+      docenteId: $docenteId
+      criteriosInput: $criteriosInput
+      fichaInput: $fichaInput
+    ) {
+      _id
+      id_actividad
+      id_estudiante
     }
   }
 `;

@@ -6,7 +6,8 @@ import {
   CURSOS_POR_DOCENTE,
   OBTENER_UNIDADES_DIDACTICAS,
   OBTENER_EVALUACIONES_ESTUDIANTE,
-  REGISTRAR_NUEVA_VERSION_EVALUACION
+  REGISTRAR_NUEVA_VERSION_EVALUACION,
+  REGISTRAR_EVALUACION
 } from '../graphql/queries.js'
 
 const { usuario } = useAuth()
@@ -24,25 +25,50 @@ const toast = ref({ show: false, message: '', type: 'success' })
 const modalNota = ref({ show: false, studentId: null, studentName: '' })
 const notaEscrita = ref('')
 
+const CRITERIA_LABELS = {
+  'crit-001': 'Clasificación',
+  'crit-002': 'Seriación',
+  'crit-003': 'Asimilación y Acomodación',
+  'crit-004': 'Justificación (Lógica)',
+  'crit-005': 'Autorregulación'
+}
+
+function getCriterioLabel(id) {
+  return CRITERIA_LABELS[id] || id
+}
+
 // Computed: estudiantes del curso seleccionado
 const students = computed(() => {
   if (!cursoSeleccionado.value) return []
   return cursoSeleccionado.value.estudiantes || []
 })
 
-// Computed: criterios desde unidades didácticas activas
-const criteria = computed(() => {
-  const set = new Map()
+const actividadSeleccionadaId = ref('')
+
+const actividadesDisponibles = computed(() => {
+  const acts = []
   unidades.value.forEach(u => {
-    ;(u.actividades || []).forEach(act => {
-      ;(act.criterios_evaluacion || []).forEach(c => {
-        if (!set.has(c.id_criterio)) {
-          set.set(c.id_criterio, { id: c.id_criterio, label: c.id_criterio })
-        }
+    ;(u.actividades || []).forEach(a => {
+      acts.push({
+        id_actividad: a.id_actividad,
+        descripcion: a.descripcion_actividad,
+        unidad: u.ambito,
+        criterios: a.criterios_evaluacion || []
       })
     })
   })
-  return Array.from(set.values())
+  return acts
+})
+
+// Criterios específicos de la actividad seleccionada
+const criteria = computed(() => {
+  if (!actividadSeleccionadaId.value) return []
+  const act = actividadesDisponibles.value.find(a => a.id_actividad === actividadSeleccionadaId.value)
+  if (!act) return []
+  return act.criterios.map(c => ({
+    id: c.id_criterio,
+    label: getCriterioLabel(c.id_criterio)
+  }))
 })
 
 // Estado local de evaluaciones del form (pendientes de guardar)
@@ -67,6 +93,10 @@ async function cargarDatos() {
       fetchPolicy: 'network-only'
     })
     unidades.value = resUnidades.data.unidadesDidacticas || []
+    
+    if (actividadesDisponibles.value.length > 0) {
+      actividadSeleccionadaId.value = actividadesDisponibles.value[0].id_actividad
+    }
 
     await cargarEvaluaciones()
   } catch (e) {
@@ -90,8 +120,9 @@ async function cargarEvaluaciones() {
     const ultima = ev.historial_versiones?.[ev.historial_versiones.length - 1]
     if (!ultima) return
     if (!local[ev.id_estudiante]) local[ev.id_estudiante] = {}
+    if (!local[ev.id_estudiante][ev.id_actividad]) local[ev.id_estudiante][ev.id_actividad] = {}
     ultima.evaluaciones_criterio?.forEach(c => {
-      local[ev.id_estudiante][c.id_criterio] = c.nivel_logro
+      local[ev.id_estudiante][ev.id_actividad][c.id_criterio] = c.nivel_logro
     })
   })
   evaluationsLocal.value = local
@@ -103,26 +134,23 @@ function cambiarCurso(curso) {
 }
 
 function setScore(studentId, criteriaId, score) {
+  const actId = actividadSeleccionadaId.value
+  if (!actId) return
   if (!evaluationsLocal.value[studentId]) evaluationsLocal.value[studentId] = {}
-  evaluationsLocal.value[studentId][criteriaId] = score
+  if (!evaluationsLocal.value[studentId][actId]) evaluationsLocal.value[studentId][actId] = {}
+  evaluationsLocal.value[studentId][actId][criteriaId] = score
 }
 
 function getScoreClass(studentId, criteriaId, targetScore) {
-  const score = evaluationsLocal.value[studentId]?.[criteriaId]
+  const actId = actividadSeleccionadaId.value
+  if (!actId) return ''
+  const score = evaluationsLocal.value[studentId]?.[actId]?.[criteriaId]
   if (score === targetScore) {
     if (score === 'LOGRADO') return 'logrado-active'
     if (score === 'EN PROCESO') return 'proceso-active'
     if (score === 'INICIADO') return 'iniciado-active'
   }
   return ''
-}
-
-function getScoreLabel(studentId, criteriaId) {
-  const score = evaluationsLocal.value[studentId]?.[criteriaId]
-  if (score === 'LOGRADO') return 'L'
-  if (score === 'EN PROCESO') return 'EP'
-  if (score === 'INICIADO') return 'I'
-  return '-'
 }
 
 function abrirNota(student) {
@@ -133,13 +161,14 @@ function abrirNota(student) {
 }
 
 async function guardarCambios() {
-  if (!usuario.value) return
+  const actId = actividadSeleccionadaId.value
+  if (!usuario.value || !actId) return
   guardando.value = true
   let guardados = 0
   let errores = 0
   try {
     for (const student of students.value) {
-      const evLocal = evaluationsLocal.value[student.id_estudiante]
+      const evLocal = evaluationsLocal.value[student.id_estudiante]?.[actId]
       if (!evLocal || Object.keys(evLocal).length === 0) continue
 
       const criteriosInput = Object.entries(evLocal).map(([id_criterio, nivel_logro]) => ({
@@ -148,8 +177,7 @@ async function guardarCambios() {
         observaciones: ''
       }))
 
-      // Buscar evaluación existente para este alumno
-      const evExistente = evaluaciones.value.find(e => e.id_estudiante === student.id_estudiante)
+      const evExistente = evaluaciones.value.find(e => e.id_estudiante === student.id_estudiante && e.id_actividad === actId)
 
       if (evExistente) {
         await apolloClient.mutate({
@@ -160,8 +188,19 @@ async function guardarCambios() {
             evaluaciones_criterio: criteriosInput
           }
         })
-        guardados++
+      } else {
+        await apolloClient.mutate({
+          mutation: REGISTRAR_EVALUACION,
+          variables: {
+            estudianteId: student.id_estudiante,
+            actividadId: actId,
+            docenteId: usuario.value._id,
+            criteriosInput,
+            fichaInput: {}
+          }
+        })
       }
+      guardados++
     }
 
     mostrarToast(`Cambios guardados (${guardados} alumnos actualizados)`, 'success')
@@ -196,17 +235,33 @@ onMounted(cargarDatos)
       </div>
     </header>
 
-    <!-- Selector de curso -->
-    <div v-if="cursos.length > 1" class="curso-selector">
-      <label>Curso:</label>
-      <div class="curso-btns">
-        <button
-          v-for="c in cursos"
-          :key="c._id"
-          class="curso-btn"
-          :class="{ active: cursoSeleccionado?._id === c._id }"
-          @click="cambiarCurso(c)"
-        >{{ c.nombre_curso }}</button>
+    <!-- Controles de filtrado -->
+    <div class="filters-card">
+      <div v-if="cursos.length > 1" class="filter-group">
+        <label>Curso:</label>
+        <div class="curso-btns">
+          <button
+            v-for="c in cursos"
+            :key="c._id"
+            class="curso-btn"
+            :class="{ active: cursoSeleccionado?._id === c._id }"
+            @click="cambiarCurso(c)"
+          >{{ c.nombre_curso }}</button>
+        </div>
+      </div>
+
+      <div class="filter-group" v-if="actividadesDisponibles.length > 0">
+        <label>Actividad a Evaluar:</label>
+        <div class="select-wrapper">
+          <select v-model="actividadSeleccionadaId" class="input-select premium-select">
+            <option v-for="act in actividadesDisponibles" :key="act.id_actividad" :value="act.id_actividad">
+              {{ act.descripcion }} ({{ act.unidad }})
+            </option>
+          </select>
+          <div class="select-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
       </div>
     </div>
 
@@ -216,6 +271,11 @@ onMounted(cargarDatos)
     <!-- Sin alumnos -->
     <div v-else-if="students.length === 0" class="empty-state">
       <p>No hay alumnos en este grupo o no tienes cursos asignados.</p>
+    </div>
+    
+    <!-- Sin actividades -->
+    <div v-else-if="actividadesDisponibles.length === 0" class="empty-state">
+      <p>No hay actividades creadas en tus unidades. Ve a Planificación para crear actividades y criterios.</p>
     </div>
 
     <!-- Sin criterios -->
@@ -250,7 +310,9 @@ onMounted(cargarDatos)
                 </div>
               </td>
               <td>
-                <button class="btn-icon" title="Nota escrita" @click="abrirNota(student)">✏️</button>
+                <button class="btn-icon" title="Nota escrita" @click="abrirNota(student)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
               </td>
             </tr>
           </tbody>
@@ -281,12 +343,18 @@ onMounted(cargarDatos)
 .title { font-size: 2rem; font-weight: 700; color: var(--text-primary); margin: 0 0 8px 0; }
 .subtitle { color: var(--text-secondary); margin: 0; }
 .header-actions { display: flex; gap: 12px; }
-.loading-msg, .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
-.curso-selector { display: flex; align-items: center; gap: 12px; }
-.curso-selector label { font-weight: 600; color: var(--text-secondary); }
-.curso-btns { display: flex; gap: 8px; flex-wrap: wrap; }
-.curso-btn { padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-glass); color: var(--text-secondary); cursor: pointer; transition: all 0.2s; font-size: 0.9rem; }
-.curso-btn.active { background: rgba(139,92,246,0.08); color: var(--primary-600); border-color: var(--primary-400); }
+.loading-msg, .empty-state { text-align: center; padding: 40px; color: var(--text-muted); background: var(--bg-surface); border-radius: 12px; border: 1px dashed var(--border-color); }
+.filters-card { display: flex; flex-direction: column; gap: 20px; padding: 24px; background: linear-gradient(145deg, var(--bg-surface), var(--bg-glass)); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 24px rgba(0,0,0,0.04); }
+.filter-group { display: flex; flex-direction: column; gap: 10px; }
+.filter-group label { font-weight: 600; color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.curso-btns { display: flex; gap: 10px; flex-wrap: wrap; }
+.curso-btn { padding: 8px 18px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-glass); color: var(--text-secondary); cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); font-weight: 500; font-size: 0.95rem; }
+.curso-btn:hover { background: var(--bg-glass-hover); transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0,0,0,0.05); }
+.curso-btn.active { background: linear-gradient(135deg, var(--primary-600), var(--primary-500)); color: white; border-color: transparent; box-shadow: 0 4px 15px rgba(139,92,246,0.25); }
+.select-wrapper { position: relative; width: 100%; max-width: 400px; }
+.premium-select { width: 100%; appearance: none; padding: 12px 40px 12px 16px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-glass); color: var(--text-primary); font-size: 1rem; font-weight: 500; transition: all 0.2s; cursor: pointer; }
+.premium-select:focus { outline: none; border-color: var(--primary-500); box-shadow: 0 0 0 3px rgba(139,92,246,0.15); background: var(--bg-surface); }
+.select-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-secondary); }
 .btn-primary, .btn-secondary { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; font-size: 0.95rem; }
 .btn-primary { background-color: var(--primary-600); color: white; }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }

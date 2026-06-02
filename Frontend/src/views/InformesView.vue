@@ -1,5 +1,5 @@
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { useAuth } from '../composables/useAuth.js'
 import apolloClient from '../graphql/client.js'
 import {
@@ -12,9 +12,25 @@ import html2pdf from 'html2pdf.js'
 const { usuario } = useAuth()
 
 const cursos = ref([])
-const cursoSeleccionado = ref(null)
-const students = ref([])
+const cursoIdSeleccionado = ref('')
 const selectedStudent = ref(null)
+
+const cursoSeleccionado = computed(() => {
+  return cursos.value.find(c => c._id === cursoIdSeleccionado.value) || null
+})
+
+const students = computed(() => {
+  return cursoSeleccionado.value?.estudiantes || []
+})
+
+watch(students, (newStudents) => {
+  if (newStudents.length > 0) {
+    const exists = newStudents.find(s => s.id_estudiante === selectedStudent.value?.id_estudiante)
+    if (!exists) selectedStudent.value = newStudents[0]
+  } else {
+    selectedStudent.value = null
+  }
+}, { immediate: true })
 const unidades = ref([])
 const evaluaciones = ref([])
 const cargando = ref(false)
@@ -38,6 +54,18 @@ function getActividadDescripcion(id_actividad) {
     if (act) return act.descripcion_actividad
   }
   return id_actividad
+}
+
+const CRITERIA_LABELS = {
+  'crit-001': 'Clasificación',
+  'crit-002': 'Seriación',
+  'crit-003': 'Asimilación y Acomodación',
+  'crit-004': 'Justificación (Lógica)',
+  'crit-005': 'Autorregulación'
+}
+
+function getCriterioLabel(id) {
+  return CRITERIA_LABELS[id] || id
 }
 
 function getNivelLabel(nivel) {
@@ -65,11 +93,7 @@ async function cargarDatos() {
     })
     cursos.value = data.cursosPorDocente || []
     if (cursos.value.length > 0) {
-      cursoSeleccionado.value = cursos.value[0]
-      students.value = cursoSeleccionado.value.estudiantes || []
-      if (students.value.length > 0) {
-        selectedStudent.value = students.value[0]
-      }
+      cursoIdSeleccionado.value = cursos.value[0]._id
     }
 
     const resUnidades = await apolloClient.query({
@@ -158,6 +182,20 @@ onMounted(cargarDatos)
       </div>
     </header>
 
+    <div class="filters-card" v-if="cursos.length > 0">
+      <div class="filter-group">
+        <label>Curso a Reportar:</label>
+        <div class="select-wrapper">
+          <select v-model="cursoIdSeleccionado" class="input-select premium-select">
+            <option v-for="c in cursos" :key="c._id" :value="c._id">{{ c.nombre_curso }}</option>
+          </select>
+          <div class="select-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-if="cargando" class="loading-msg">Cargando datos...</div>
 
     <div v-else class="layout-grid">
@@ -229,7 +267,7 @@ onMounted(cargarDatos)
                         <tr v-for="(c, idx) in ver.evaluaciones_criterio" :key="c.id_criterio">
                           <td v-if="idx === 0" :rowspan="ver.evaluaciones_criterio.length">v{{ ver.version }}<br><small>{{ new Date(parseInt(ver.fecha_registro)).toLocaleDateString('es-EC') }}</small></td>
                           <td v-if="idx === 0" :rowspan="ver.evaluaciones_criterio.length"></td>
-                          <td>{{ c.id_criterio }}</td>
+                          <td>{{ getCriterioLabel(c.id_criterio) }}</td>
                           <td><span class="badge" :class="getNivelClass(c.nivel_logro)">{{ getNivelLabel(c.nivel_logro) }}</span></td>
                           <td>{{ c.observaciones || '-' }}</td>
                         </tr>
@@ -310,20 +348,30 @@ onMounted(cargarDatos)
 .subtitle { color: var(--text-secondary); margin: 0; }
 .header-actions { display: flex; align-items: center; }
 .loading-msg { text-align: center; padding: 40px; color: var(--text-muted); }
-.btn-primary, .btn-secondary { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; font-size: 0.95rem; display: flex; align-items: center; gap: 6px; }
-.btn-primary { background-color: #3b82f6; color: white; }
+.btn-primary, .btn-secondary { padding: 10px 20px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; font-size: 0.95rem; display: flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-primary { background: linear-gradient(135deg, var(--primary-600), var(--primary-500)); color: white; box-shadow: 0 4px 15px rgba(139,92,246,0.2); }
+.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(139,92,246,0.3); }
 .btn-primary:disabled, .btn-secondary:disabled { opacity: 0.7; cursor: wait; }
 .btn-secondary { background: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-color); }
-.btn-secondary:hover:not(:disabled) { background: var(--bg-glass-hover); }
+.btn-secondary:hover:not(:disabled) { background: var(--bg-glass-hover); transform: translateY(-1px); }
+.layout-grid { display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: start; max-width: 100%; }
+.filters-card { display: flex; flex-direction: column; gap: 20px; padding: 24px; background: linear-gradient(145deg, var(--bg-surface), var(--bg-glass)); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 24px rgba(0,0,0,0.04); margin-bottom: 24px; }
+.filter-group { display: flex; flex-direction: column; gap: 10px; }
+.filter-group label { font-weight: 600; color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.select-wrapper { position: relative; width: 100%; max-width: 400px; }
+.premium-select { width: 100%; appearance: none; padding: 12px 40px 12px 16px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-glass); color: var(--text-primary); font-size: 1rem; font-weight: 500; transition: all 0.2s; cursor: pointer; }
+.premium-select:focus { outline: none; border-color: var(--primary-500); box-shadow: 0 0 0 3px rgba(139,92,246,0.15); background: var(--bg-surface); }
+.select-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-secondary); }
 .layout-grid { display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: start; max-width: 100%; }
 .students-list { background: var(--bg-surface); border-radius: 12px; padding: 20px; border: 1px solid var(--border-color); }
 .students-list h3 { margin: 0 0 16px 0; color: var(--text-primary); font-size: 1.1rem; }
 .students-list ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }
 .students-list li { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 8px; cursor: pointer; transition: all 0.2s; color: var(--text-secondary); font-weight: 500; }
 .students-list li:hover { background-color: var(--bg-glass-hover); }
-.students-list li.active { background-color: rgba(59,130,246,0.15); color: var(--text-primary); }
+.students-list li.active { background-color: rgba(139,92,246,0.15); color: var(--text-primary); }
 .avatar { width: 32px; height: 32px; border-radius: 50%; background-color: var(--bg-glass); display: flex; align-items: center; justify-content: center; font-weight: bold; color: var(--text-secondary); }
-.students-list li.active .avatar { background-color: #3b82f6; color: white; }
+.students-list li.active .avatar { background-color: var(--primary-600); color: white; }
+.students-list li.active .avatar { background-color: var(--primary-600); color: white; }
 .report-preview { display: flex; flex-direction: column; gap: 20px; min-width: 0; max-width: 100%; }
 .preview-header { display: flex; justify-content: space-between; align-items: center; }
 .preview-header h2 { margin: 0; font-size: 1.2rem; color: var(--text-primary); }

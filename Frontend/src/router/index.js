@@ -2,6 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useAuth } from '../composables/useAuth.js';
 
 import LandingPage from '../views/LandingPage.vue';
+import LoginView from '../views/LoginView.vue';
 import UnidadDidacticaView from '../views/UnidadDidacticaView.vue';
 import EvaluacionesView from '../views/EvaluacionesView.vue';
 import FichaMonitoreoView from '../views/FichaMonitoreoView.vue';
@@ -13,6 +14,12 @@ const routes = [
     path: '/',
     name: 'Landing',
     component: LandingPage,
+    meta: { publica: true },
+  },
+  {
+    path: '/login',
+    name: 'Login',
+    component: LoginView,
     meta: { publica: true },
   },
   {
@@ -128,7 +135,7 @@ router.beforeEach((to, _from, next) => {
   // Ruta que requiere autenticación
   if (to.meta.requiereAuth) {
     if (!estaAutenticado.value) {
-      return next({ name: 'Landing' });
+      return next({ name: 'Login' });
     }
 
     // Verificar rol

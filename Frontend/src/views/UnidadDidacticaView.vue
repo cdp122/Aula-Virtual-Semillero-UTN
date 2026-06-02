@@ -6,7 +6,8 @@ import {
   CREAR_UNIDAD_DIDACTICA_CRUD,
   ACTUALIZAR_UNIDAD_DIDACTICA,
   CLONAR_UNIDAD_DIDACTICA,
-  ARCHIVAR_UNIDAD_DIDACTICA
+  ARCHIVAR_UNIDAD_DIDACTICA,
+  AGREGAR_ACTIVIDAD_A_UNIDAD
 } from '../graphql/queries.js'
 
 const currentStep = ref(1)
@@ -21,6 +22,23 @@ const toast = ref({ show: false, message: '', type: 'success' })
 // Modo edición
 const modoEdicion = ref(false)
 const editandoId = ref(null)
+
+// Modal agregar actividad
+const modalActividad = ref(false)
+const unidadParaActividad = ref(null)
+const guardandoActividad = ref(false)
+const formActividad = ref({
+  descripcion_actividad: '',
+  tipo_actividad: 'CLASE',
+  criterios_evaluacion: []
+})
+const opcionesCriterios = [
+  { id: 'crit-001', label: 'Clasificación' },
+  { id: 'crit-002', label: 'Seriación' },
+  { id: 'crit-003', label: 'Asimilación y Acomodación' },
+  { id: 'crit-004', label: 'Justificación (Lógica)' },
+  { id: 'crit-005', label: 'Autorregulación' }
+]
 
 const form = ref({
   ambito: '',
@@ -145,6 +163,54 @@ async function archivarUnidad(id) {
   }
 }
 
+function abrirModalActividad(unit) {
+  unidadParaActividad.value = unit
+  formActividad.value = {
+    descripcion_actividad: '',
+    tipo_actividad: 'CLASE',
+    criterios_evaluacion: []
+  }
+  modalActividad.value = true
+}
+
+async function guardarActividad() {
+  if (!formActividad.value.descripcion_actividad.trim()) {
+    mostrarToast('Debes escribir una descripción para la actividad', 'error')
+    return
+  }
+  if (formActividad.value.criterios_evaluacion.length === 0) {
+    mostrarToast('Debes seleccionar al menos un criterio', 'error')
+    return
+  }
+  guardandoActividad.value = true
+  try {
+    const input = {
+      id_actividad: `act-${Date.now()}`,
+      tipo_actividad: formActividad.value.tipo_actividad,
+      descripcion_actividad: formActividad.value.descripcion_actividad.trim(),
+      fecha_actividad: new Date().toISOString(),
+      activo: true,
+      archivos_adjuntos: [],
+      criterios_evaluacion: formActividad.value.criterios_evaluacion.map(c => ({
+        id_criterio: c,
+        tipo: 'RUBRICA'
+      }))
+    }
+    await apolloClient.mutate({
+      mutation: AGREGAR_ACTIVIDAD_A_UNIDAD,
+      variables: { unidadId: unidadParaActividad.value._id, input }
+    })
+    mostrarToast('Actividad agregada exitosamente', 'success')
+    modalActividad.value = false
+    await cargarUnidades()
+  } catch (error) {
+    console.error(error)
+    mostrarToast(`Error: ${error.message}`, 'error')
+  } finally {
+    guardandoActividad.value = false
+  }
+}
+
 function mostrarToast(message, type) {
   toast.value = { show: true, message, type }
   setTimeout(() => { toast.value.show = false }, 3000)
@@ -189,9 +255,18 @@ onMounted(cargarUnidades)
                 </span>
               </div>
               <div class="card-actions">
-                <button class="btn-icon" title="Editar" @click="iniciarEdicion(unit)">✏️</button>
-                <button class="btn-icon" title="Clonar" @click="clonarUnidad(unit._id)">📋</button>
-                <button class="btn-icon" title="Archivar" @click="archivarUnidad(unit._id)" v-if="unit.activo">🗃️</button>
+                <button class="btn-icon" title="Agregar Actividad" @click="abrirModalActividad(unit)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                </button>
+                <button class="btn-icon" title="Editar" @click="iniciarEdicion(unit)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+                </button>
+                <button class="btn-icon" title="Clonar" @click="clonarUnidad(unit._id)">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                </button>
+                <button class="btn-icon" title="Archivar" @click="archivarUnidad(unit._id)" v-if="unit.activo">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+                </button>
               </div>
             </div>
             <p><strong>Semanas:</strong> {{ unit.semanas_previstas }}</p>
@@ -291,6 +366,44 @@ onMounted(cargarUnidades)
         {{ toast.message }}
       </div>
     </Transition>
+
+    <!-- Modal Agregar Actividad -->
+    <div v-if="modalActividad" class="modal-overlay" @click.self="modalActividad = false">
+      <div class="modal-box">
+        <h3>Agregar Actividad a "{{ unidadParaActividad?.ambito }}"</h3>
+        
+        <div class="form-group" style="margin-top: 16px;">
+          <label>Descripción de la actividad *</label>
+          <textarea v-model="formActividad.descripcion_actividad" class="input-base" rows="3" placeholder="Ej. Los alumnos participarán en una ronda de lectura..."></textarea>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <label>Tipo de Actividad</label>
+          <select v-model="formActividad.tipo_actividad" class="input-base">
+            <option value="CLASE">Trabajo en Clase</option>
+            <option value="CASA">Trabajo en Casa</option>
+            <option value="EXAMEN">Examen / Evaluación</option>
+          </select>
+        </div>
+
+        <div class="form-group" style="margin-top: 16px;">
+          <label>Criterios de Evaluación a observar</label>
+          <div class="checkbox-group">
+            <label v-for="crit in opcionesCriterios" :key="crit.id" class="check-label">
+              <input type="checkbox" :value="crit.id" v-model="formActividad.criterios_evaluacion" />
+              {{ crit.label }}
+            </label>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn-secondary" @click="modalActividad = false">Cancelar</button>
+          <button class="btn-primary" @click="guardarActividad" :disabled="guardandoActividad">
+            {{ guardandoActividad ? 'Guardando...' : 'Guardar Actividad' }}
+          </button>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -339,12 +452,15 @@ onMounted(cargarUnidades)
 .review-card { background-color: var(--bg-glass); padding: 24px; border-radius: 8px; border: 1px solid var(--border-color); }
 .review-card p { margin: 10px 0; color: var(--text-secondary); }
 .wizard-actions { display: flex; justify-content: flex-end; gap: 16px; margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border-color); }
-.btn-primary, .btn-secondary, .btn-success { padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; font-size: 0.95rem; }
-.btn-primary { background-color: var(--primary-600); color: white; }
-.btn-primary:hover:not(:disabled) { background-color: var(--primary-700); }
+.btn-primary, .btn-secondary, .btn-success { padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; transition: all 0.2s; border: none; font-size: 0.95rem; display: inline-flex; align-items: center; justify-content: center; gap: 8px; }
+.btn-primary { background: linear-gradient(135deg, var(--primary-600), var(--primary-500)); color: white; box-shadow: 0 4px 15px rgba(139,92,246,0.2); }
+.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(139,92,246,0.3); }
+.btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .btn-secondary { background-color: var(--bg-glass); color: var(--text-primary); border: 1px solid var(--border-color); }
+.btn-secondary:hover:not(:disabled) { background: var(--bg-glass-hover); transform: translateY(-1px); }
 .btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
-.btn-success { background-color: var(--primary-600); color: white; }
+.btn-success { background: linear-gradient(135deg, #16a34a, #22c55e); color: white; box-shadow: 0 4px 15px rgba(34,197,94,0.2); }
+.btn-success:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(34,197,94,0.3); }
 .btn-success:disabled { opacity: 0.6; cursor: not-allowed; }
 .toast { position: fixed; bottom: 24px; right: 24px; padding: 14px 20px; border-radius: 10px; color: white; font-weight: 600; z-index: 9999; }
 .toast-success { background: #22c55e; }
@@ -354,6 +470,15 @@ onMounted(cargarUnidades)
 .slide-enter-active, .slide-leave-active { transition: all 0.3s ease-out; }
 .slide-enter-from { opacity: 0; transform: translateX(20px); }
 .slide-leave-to { opacity: 0; transform: translateX(-20px); }
+
+/* Modal Actividad */
+.modal-overlay { position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 100; display: flex; align-items: center; justify-content: center; }
+.modal-box { background: var(--bg-surface); border-radius: 12px; padding: 24px; width: 500px; max-width: 90vw; border: 1px solid var(--border-color); box-shadow: 0 10px 25px rgba(0,0,0,0.2); }
+.modal-box h3 { margin: 0 0 8px; color: var(--text-primary); font-size: 1.2rem; }
+.checkbox-group { display: flex; flex-direction: column; gap: 8px; margin-top: 8px; }
+.check-label { display: flex; align-items: center; gap: 8px; color: var(--text-secondary); cursor: pointer; font-size: 0.95rem; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 12px; margin-top: 24px; }
+
 @media (max-width: 768px) {
   .page-header { flex-direction: column; align-items: flex-start; gap: 15px; }
   .wizard-container { padding: 20px; }

@@ -99,6 +99,18 @@ async function selectStudent(student) {
   }
 }
 
+async function cambiarCurso(cursoId) {
+  const curso = cursos.value.find(c => c._id === cursoId)
+  if (curso) {
+    cursoSeleccionado.value = curso
+    students.value = curso.estudiantes || []
+    selectedStudent.value = null
+    if (students.value.length > 0) {
+      await selectStudent(students.value[0])
+    }
+  }
+}
+
 async function saveFicha() {
   if (!selectedStudent.value || !usuario.value) return
   guardando.value = true
@@ -162,6 +174,24 @@ onMounted(cargarDatos)
       </button>
     </header>
 
+    <div class="filters-card" v-if="cursos.length > 0">
+      <div class="filter-group">
+        <label>Curso Seleccionado:</label>
+        <div class="select-wrapper">
+          <select 
+            :value="cursoSeleccionado?._id" 
+            @change="e => cambiarCurso(e.target.value)" 
+            class="input-select premium-select"
+          >
+            <option v-for="c in cursos" :key="c._id" :value="c._id">{{ c.nombre_curso }}</option>
+          </select>
+          <div class="select-icon">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
     <div v-if="cargando" class="loading-msg">Cargando datos...</div>
 
     <div v-else-if="students.length === 0" class="empty-state">
@@ -222,10 +252,18 @@ onMounted(cargarDatos)
 .page-header { display: flex; justify-content: space-between; align-items: center; }
 .title { font-size: 2rem; font-weight: 700; color: var(--text-primary); margin: 0 0 8px 0; }
 .subtitle { color: var(--text-secondary); margin: 0; }
-.loading-msg, .empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
-.btn-primary { padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; background-color: var(--primary-600); color: white; border: none; font-size: 0.95rem; transition: background-color 0.2s; }
+.loading-msg, .empty-state { text-align: center; padding: 40px; color: var(--text-muted); background: var(--bg-surface); border-radius: 12px; border: 1px dashed var(--border-color); }
+.btn-primary { padding: 12px 24px; border-radius: 8px; font-weight: 600; cursor: pointer; background: linear-gradient(135deg, var(--primary-600), var(--primary-500)); color: white; border: none; font-size: 0.95rem; transition: all 0.2s; box-shadow: 0 4px 15px rgba(139,92,246,0.2); }
+.btn-primary:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(139,92,246,0.3); }
 .btn-primary:disabled { opacity: 0.6; cursor: not-allowed; }
 .layout-grid { display: grid; grid-template-columns: 280px 1fr; gap: 24px; align-items: start; max-width: 100%; }
+.filters-card { display: flex; flex-direction: column; gap: 20px; padding: 24px; background: linear-gradient(145deg, var(--bg-surface), var(--bg-glass)); border-radius: 16px; border: 1px solid var(--border-color); box-shadow: 0 4px 24px rgba(0,0,0,0.04); margin-bottom: 24px; }
+.filter-group { display: flex; flex-direction: column; gap: 10px; }
+.filter-group label { font-weight: 600; color: var(--text-secondary); font-size: 0.9rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.select-wrapper { position: relative; width: 100%; max-width: 400px; }
+.premium-select { width: 100%; appearance: none; padding: 12px 40px 12px 16px; border-radius: 10px; border: 1px solid var(--border-color); background: var(--bg-glass); color: var(--text-primary); font-size: 1rem; font-weight: 500; transition: all 0.2s; cursor: pointer; }
+.premium-select:focus { outline: none; border-color: var(--primary-500); box-shadow: 0 0 0 3px rgba(139,92,246,0.15); background: var(--bg-surface); }
+.select-icon { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); pointer-events: none; color: var(--text-secondary); }
 .students-list { background: var(--bg-surface); border-radius: 12px; padding: 20px; border: 1px solid var(--border-color); }
 .students-list h3 { margin: 0 0 16px 0; color: var(--text-primary); font-size: 1.1rem; }
 .students-list ul { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 8px; }

@@ -528,10 +528,11 @@ watch(() => props.id, (nuevoId) => {
 
 /* ── COMPARATIVA SECCIÓN ── */
 .comparativa-section {
-  background: rgba(255,255,255,0.01);
+  background: var(--bg-surface);
   border: 1px solid var(--border-color);
   padding: 28px;
   border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
 .section-subtitle {
@@ -548,15 +549,20 @@ watch(() => props.id, (nuevoId) => {
 }
 
 .comparativa-card {
-  background: rgba(11,15,26,0.6);
+  background: var(--bg-body);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-md);
   padding: 16px 20px;
+  transition: all var(--transition-fast);
+}
+
+.comparativa-card:hover {
+  border-color: var(--primary-300);
 }
 
 .comp-card-header h4 {
   font-size: 0.95rem;
-  color: var(--text-secondary);
+  color: var(--text-primary);
   margin-bottom: 14px;
   font-weight: 700;
 }
@@ -631,25 +637,34 @@ watch(() => props.id, (nuevoId) => {
   justify-content: space-between;
   align-items: center;
   padding: 20px;
-  background: var(--bg-glass);
+  background: var(--bg-surface);
   border: 1px solid var(--border-color);
   border-radius: var(--radius-lg);
   gap: 20px;
+  transition: all var(--transition-base);
+  box-shadow: var(--shadow-sm);
+}
+
+.unidad-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary-300);
+  box-shadow: var(--shadow-md);
 }
 
 .unidad-ambito {
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  color: var(--primary-400);
+  color: var(--primary-600);
   margin-bottom: 6px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .unidad-info h4 {
   font-size: 1.05rem;
   margin-bottom: 8px;
   line-height: 1.4;
+  color: var(--text-primary);
 }
 
 .unidad-meta {
@@ -657,7 +672,7 @@ watch(() => props.id, (nuevoId) => {
   align-items: center;
   gap: 6px;
   font-size: 0.85rem;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .unidad-stats {
@@ -671,20 +686,24 @@ watch(() => props.id, (nuevoId) => {
   flex-direction: column;
   align-items: center;
   padding: 8px 16px;
-  background: rgba(0,0,0,0.2);
+  background: rgba(139,92,246,0.1);
   border-radius: var(--radius-md);
+  border: 1px solid rgba(139,92,246,0.15);
 }
 
 .stat-val {
-  font-size: 1.2rem;
-  font-weight: 700;
-  color: var(--text-primary);
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--primary-600);
+  line-height: 1;
+  margin-bottom: 2px;
 }
 
 .stat-lbl {
   font-size: 0.7rem;
-  color: var(--text-muted);
+  color: var(--primary-600);
   text-transform: uppercase;
+  font-weight: 700;
 }
 
 /* ── EVALUACIONES ── */
